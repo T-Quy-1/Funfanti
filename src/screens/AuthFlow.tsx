@@ -65,6 +65,13 @@ export function AuthFlow({
   onCompleteSuccess,
 }: AuthFlowProps) {
   const showUnsupportedProvider = (provider: string) => {
+    if (provider === 'Password reset') {
+      Alert.alert(
+        'Reset Password',
+        'Password reset functionality is coming soon. Please contact us at ngokynam4924@gmail.com if you need immediate help accessing your account.'
+      );
+      return;
+    }
     Alert.alert(`${provider} sign-in`, 'This backend currently supports email and password authentication only.');
   };
 
