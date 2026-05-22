@@ -37,9 +37,8 @@ export function IntroFlow({
         <View style={styles.splashCenter}>
           <ArtBlock tone={colors.brandGreen} variant="hero" />
           <Text style={styles.splashWordmark}>Funfanti</Text>
-          <Text style={styles.splashCaption}>Tiny quizzes. Faster recall. Better habits.</Text>
-          <Pressable style={styles.splashButton} onPress={onGoToApp}>
-            <Text style={styles.splashButtonText}>Enter app</Text>
+          <Pressable style={styles.splashLink} onPress={onGoToApp}>
+            <Text style={styles.splashLinkText}>Enter app</Text>
           </Pressable>
         </View>
       </View>
@@ -97,23 +96,15 @@ export function IntroFlow({
           ))}
         </View>
         <Text style={styles.onboardingTitle}>{slide.title}</Text>
-        <Text style={styles.onboardingText}>{slide.description}</Text>
         <View style={styles.onboardingActions}>
-          <Pressable style={styles.ghostButton} onPress={onGoToApp}>
-            <Text style={styles.ghostButtonText}>Skip</Text>
+          <Pressable style={styles.linkButton} onPress={onGoToApp}>
+            <Text style={styles.linkButtonText}>Skip</Text>
           </Pressable>
           <Pressable style={styles.primaryButton} onPress={onAdvanceOnboarding}>
             <Text style={styles.primaryButtonText}>
               {activeSlide === onboardingSlides.length - 1 ? 'Get started' : 'Next'}
             </Text>
           </Pressable>
-        </View>
-        <View style={styles.onboardingHelperCard}>
-          <Text style={styles.helperCardLabel}>What makes Funfanti different</Text>
-          <Text style={styles.helperCardText}>
-            Questions are short, visual, and designed to feel effortless while still building
-            lasting recall.
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -156,30 +147,21 @@ const styles = StyleSheet.create({
   },
   splashWordmark: {
     color: '#fffbe7',
-    fontSize: 40,
-    fontWeight: '900',
+    fontSize: 34,
+    fontWeight: '700',
     letterSpacing: 0.6,
     marginTop: 16,
   },
-  splashCaption: {
-    color: 'rgba(255,255,255,0.92)',
-    marginTop: 10,
-    textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 320,
+  splashLink: {
+    marginTop: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  splashButton: {
-    marginTop: 24,
-    backgroundColor: colors.brand,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 999,
-  },
-  splashButtonText: {
+  splashLinkText: {
     color: colors.surface,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 15,
+    letterSpacing: 0.2,
   },
   onboardingContainer: {
     flexGrow: 1,
@@ -211,16 +193,9 @@ const styles = StyleSheet.create({
   onboardingTitle: {
     textAlign: 'center',
     fontSize: 28,
-    lineHeight: 35,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  onboardingText: {
-    textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 24,
-    color: colors.textMuted,
-    marginTop: 16,
+    lineHeight: 42,
+    fontWeight: '600',
+    color: '#111827',
   },
   onboardingActions: {
     flexDirection: 'row',
@@ -228,39 +203,17 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 28,
   },
-  ghostButton: {
+  linkButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#d8ddd2',
-    borderRadius: 999,
     alignItems: 'center',
-    paddingVertical: 14,
-    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    borderRadius: 999,
+    minHeight: 46,
   },
-  ghostButtonText: {
-    color: '#24324a',
-    fontWeight: '700',
-  },
-  onboardingHelperCard: {
-    marginTop: 24,
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e4e7dd',
-  },
-  helperCardLabel: {
-    color: colors.textSoft,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-    fontWeight: '700',
-  },
-  helperCardText: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 22,
+  linkButtonText: {
+    color: '#9CA3AF',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   primaryButton: {
     backgroundColor: colors.brand,
@@ -298,7 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
   },
   interestChipText: {
-    color: '#31404f',
+    color: '#111827',
     fontWeight: '700',
     textAlign: 'center',
   },
@@ -310,18 +263,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#e1e6d9',
+    borderWidth: 0,
     marginBottom: 18,
   },
   noteTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.text,
+    color: '#111827',
     marginBottom: 8,
   },
   noteText: {
-    color: colors.textMuted,
-    lineHeight: 22,
+    color: '#9CA3AF',
+    fontSize: 14,
+    lineHeight: 21,
   },
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { spacing, borderRadius, shadows } from '../theme/spacing';
+import { spacing, borderRadius } from '../theme/spacing';
 
 interface StatCardProps {
   title: string;
@@ -102,11 +102,8 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   header: {
     flexDirection: 'row',
@@ -125,6 +122,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.3,
+    color: '#9CA3AF',
+    lineHeight: 18,
   },
   valueContainer: {
     flexDirection: 'row',
@@ -143,6 +142,7 @@ const styles = StyleSheet.create({
   unit: {
     fontSize: 12,
     fontWeight: '400',
+    color: '#9CA3AF',
   },
   trendBadge: {
     flexDirection: 'row',
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.full,
-    borderWidth: 1.5,
+    borderWidth: 0,
     gap: 4,
   },
   trendSymbol: {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
-import { spacing, borderRadius, shadows } from '../theme/spacing';
+import { spacing, borderRadius } from '../theme/spacing';
 
 interface EnhancedCardProps {
   title?: string;
@@ -52,17 +52,11 @@ export function EnhancedCard({
     padding: paddingMap[size],
     borderRadius: borderRadiusSize[size],
     backgroundColor,
-    ...(variant === 'elevated' && {
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 12,
-      elevation: 3,
-    }),
     ...(variant === 'outlined' && {
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: 0,
     }),
+    shadowOpacity: 0,
+    elevation: 0,
   };
 
   return (
@@ -159,19 +153,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
-    lineHeight: 22,
+    color: '#111827',
+    lineHeight: 24,
   },
   subtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textMuted,
+    color: '#9CA3AF',
     letterSpacing: 0.5,
+    lineHeight: 18,
   },
   description: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSoft,
-    lineHeight: 18,
+    color: '#9CA3AF',
+    lineHeight: 20,
   },
 });

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme/colors';
-import { spacing, borderRadius, shadows } from '../theme/spacing';
+import { spacing } from '../theme/spacing';
 
 type PrimaryButtonProps = {
   label: string;
@@ -36,18 +36,18 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    fontWeight: '600',
+    borderRadius: 24,
+    borderWidth: 0,
   },
   primary: {
     backgroundColor: colors.brand,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xxl,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
   },
   secondary: {
     backgroundColor: colors.brandGreenSoft,
@@ -56,10 +56,9 @@ const styles = StyleSheet.create({
   },
   outline: {
     backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.brand,
-    paddingVertical: spacing.lg - 2,
-    paddingHorizontal: spacing.xxl - 2,
+    borderWidth: 0,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xxl,
   },
   sm: {
     paddingVertical: spacing.md,

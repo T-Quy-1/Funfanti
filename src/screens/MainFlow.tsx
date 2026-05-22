@@ -63,13 +63,8 @@ export function MainFlow(props: MainFlowProps) {
     onUpdateNotificationOverlay,
   } = props;
 
-  const truncateText = (value: string, maxLength: number) => {
-    if (value.length <= maxLength) {
-      return value;
-    }
-
-    return `${value.slice(0, maxLength).trimEnd()}...`;
-  };
+  const truncateText = (value: string, maxLength = 30) =>
+    value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -105,18 +100,18 @@ export function MainFlow(props: MainFlowProps) {
             title="Questions today"
             value={stats[0]?.value || '18'}
             iconName="help-circle"
-            backgroundColor={colors.blueSoft}
-            accentColor={colors.blue}
-            textColor={colors.blueDark}
+            backgroundColor={colors.surface}
+            accentColor={colors.brand}
+            textColor="#111827"
           />
           <StatCard
             title="Streak"
             value={stats[1]?.value || '12'}
             unit="days"
             iconName="zap"
-            backgroundColor={colors.orangeSoft}
-            accentColor={colors.orange}
-            textColor={colors.orangeDark}
+            backgroundColor={colors.surface}
+            accentColor={colors.brand}
+            textColor="#111827"
             trend="up"
             trendValue="+3 this week"
           />
@@ -124,9 +119,9 @@ export function MainFlow(props: MainFlowProps) {
             title="Saved sets"
             value={stats[2]?.value || '24'}
             iconName="bookmark"
-            backgroundColor={colors.purpleSoft}
-            accentColor={colors.purple}
-            textColor={colors.purpleDark}
+            backgroundColor={colors.surface}
+            accentColor={colors.brand}
+            textColor="#111827"
           />
         </View>
 
@@ -253,8 +248,9 @@ export function MainFlow(props: MainFlowProps) {
     <SafeAreaView style={styles.page}>
       <ScrollView contentContainerStyle={styles.quizContainer}>
         <View style={styles.quizTopRow}>
-          <Pressable onPress={onBackToHome}>
-            <Text style={styles.backLabel}>� Back</Text>
+          <Pressable style={styles.backLink} onPress={onBackToHome}>
+            <Feather name="arrow-left" size={16} color={colors.textMuted} />
+            <Text style={styles.backLabel}>Back</Text>
           </Pressable>
           <Text style={styles.quizMeta}>{truncateText(currentQuestion.topic, 24)}</Text>
           <Text style={styles.quizCounter}>
@@ -426,13 +422,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: "hidden",
     marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   bannerCopy: {
     paddingHorizontal: spacing.lg,
@@ -440,21 +432,23 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   bannerEyebrow: {
-    color: colors.brandGreen,
+    color: '#9CA3AF',
     fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: 1,
     fontSize: 12,
     marginBottom: spacing.md,
+    lineHeight: 18,
   },
   bannerTitle: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 24,
-    lineHeight: 30,
+    lineHeight: 36,
     fontWeight: "600",
   },
   bannerText: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 14,
     marginTop: spacing.md,
     lineHeight: 21,
   },
@@ -468,17 +462,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   subtleLabel: {
-    color: colors.textSoft,
+    color: '#9CA3AF',
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: spacing.sm,
     fontWeight: "500",
+    lineHeight: 18,
   },
   bigValue: {
     fontSize: 24,
     fontWeight: "600",
-    color: colors.text,
+    color: '#111827',
+    lineHeight: 36,
   },
   avatarBubble: {
     width: 52,
@@ -487,11 +483,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.shadowMd,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   avatarBubbleText: {
     color: colors.surface,
@@ -521,34 +514,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: "hidden",
-    shadowColor: colors.shadowMd,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   featuredContent: {
     padding: spacing.lg,
   },
   featuredTag: {
-    color: colors.brandGreen,
+    color: '#9CA3AF',
     fontWeight: "400",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: spacing.sm,
     fontSize: 12,
+    lineHeight: 18,
   },
   featuredTitle: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 20,
     fontWeight: "700",
     marginBottom: spacing.sm,
+    lineHeight: 30,
   },
   featuredText: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 14,
     lineHeight: 21,
     marginBottom: spacing.lg,
   },
@@ -559,13 +551,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   listSectionTitle: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 18,
     fontWeight: "700",
   },
   listSectionAction: {
-    color: colors.brand,
-    fontWeight: "600",
+    color: '#9CA3AF',
+    fontWeight: "500",
+    fontSize: 12,
+    lineHeight: 18,
   },
   courseCard: {
     flexDirection: "row",
@@ -573,11 +567,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   courseBody: {
     flex: 1,
@@ -585,21 +576,24 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   courseTopic: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: '#9CA3AF',
+    fontSize: 12,
     fontWeight: "400",
     textTransform: "uppercase",
     marginBottom: spacing.xs,
+    lineHeight: 18,
   },
   courseTitle: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 18,
     fontWeight: "700",
     marginBottom: spacing.xs,
+    lineHeight: 27,
   },
   courseSubtitle: {
-    color: colors.textMuted,
-    lineHeight: 19,
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 20,
     marginBottom: spacing.md,
   },
   progressTrack: {
@@ -622,19 +616,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     marginBottom: spacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 1,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   searchIcon: {
     marginRight: spacing.md,
   },
   searchInput: {
     flex: 1,
-    color: colors.text,
-    fontSize: 15,
+    color: '#111827',
+    fontSize: 14,
+    lineHeight: 21,
   },
   filterDot: {
     width: 12,
@@ -653,8 +645,10 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   filterChipText: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 12,
     fontWeight: "400",
+    lineHeight: 18,
   },
   discoveryCard: {
     flexDirection: "row",
@@ -663,33 +657,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     overflow: "hidden",
     borderWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   discoveryBody: {
     flex: 1,
     padding: spacing.md,
   },
   discoveryTitle: {
-    color: colors.text,
+    color: '#111827',
     fontSize: 18,
     fontWeight: "700",
     marginBottom: spacing.xs,
+    lineHeight: 27,
   },
   discoveryMeta: {
-    color: colors.textMuted,
-    fontSize: 13,
+    color: '#9CA3AF',
+    fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginBottom: spacing.md,
     fontWeight: "400",
+    lineHeight: 18,
   },
   discoveryText: {
-    color: colors.textMuted,
-    lineHeight: 19,
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 20,
     marginBottom: spacing.md,
   },
   discoveryFooter: {
@@ -698,12 +692,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   discoveryProgress: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 12,
     fontWeight: "400",
+    lineHeight: 18,
   },
   discoveryAction: {
-    color: colors.brand,
-    fontWeight: "600",
+    color: '#9CA3AF',
+    fontWeight: "500",
+    fontSize: 12,
+    lineHeight: 18,
   },
   quizContainer: {
     flexGrow: 1,
@@ -711,42 +709,49 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
-  backLabel: {
-    color: colors.text,
-    marginBottom: spacing.md,
-    fontSize: 15,
-    fontWeight: "700",
-  },
   quizTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: spacing.lg,
   },
-  quizMeta: {
+  backLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingRight: 10,
+  },
+  backLabel: {
     color: colors.textMuted,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  quizMeta: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 18,
   },
   quizCounter: {
-    color: colors.brand,
-    fontWeight: "600",
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 18,
   },
   quizCard: {
     backgroundColor: colors.surface,
     borderRadius: 24,
     padding: spacing.lg,
     borderWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   quizQuestion: {
     fontSize: 20,
-    lineHeight: 28,
+    lineHeight: 30,
     fontWeight: "700",
-    color: colors.text,
+    color: '#111827',
     marginBottom: spacing.lg,
   },
   choiceStack: {
@@ -755,8 +760,7 @@ const styles = StyleSheet.create({
   choiceButton: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderWidth: 0,
     borderRadius: 24,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
@@ -764,11 +768,11 @@ const styles = StyleSheet.create({
   },
   choiceCorrect: {
     backgroundColor: '#ECFDF5',
-    borderColor: '#D1FAE5',
+    borderColor: 'transparent',
   },
   choiceWrong: {
     backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    borderColor: 'transparent',
   },
   choiceLetter: {
     width: 32,
@@ -784,7 +788,9 @@ const styles = StyleSheet.create({
   },
   choiceText: {
     flex: 1,
-    color: colors.text,
+    color: '#111827',
+    fontSize: 15,
+    lineHeight: 23,
     fontWeight: "400",
   },
   quizHint: {
@@ -795,13 +801,14 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   quizHintTitle: {
-    color: colors.brand,
+    color: '#111827',
     fontWeight: "700",
     marginBottom: spacing.sm,
   },
   quizHintText: {
-    color: colors.text,
-    lineHeight: 20,
+    color: '#9CA3AF',
+    fontSize: 14,
+    lineHeight: 21,
   },
   resultContainer: {
     flexGrow: 1,
@@ -816,12 +823,14 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: colors.text,
+    color: '#111827',
   },
   resultTopic: {
     marginTop: spacing.sm,
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 12,
     fontWeight: "400",
+    lineHeight: 18,
   },
   resultRing: {
     alignSelf: "center",
@@ -829,26 +838,24 @@ const styles = StyleSheet.create({
     height: 190,
     borderRadius: 95,
     backgroundColor: colors.surface,
-    borderWidth: 10,
-    borderColor: '#D1FAE5',
+    borderWidth: 0,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xl,
-    shadowColor: colors.shadowLg,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   resultPercent: {
     fontSize: 48,
     fontWeight: "700",
-    color: colors.brand,
+    color: '#111827',
   },
   resultLabel: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
+    fontSize: 12,
     marginTop: spacing.sm,
     fontWeight: "400",
+    lineHeight: 18,
   },
   resultGrid: {
     flexDirection: "row",
@@ -861,22 +868,19 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: spacing.lg,
     borderWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   resultMetricValue: {
-    color: colors.text,
+    color: '#111827',
     fontWeight: "700",
     fontSize: 20,
   },
   resultMetricLabel: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
     marginTop: spacing.md,
     lineHeight: 18,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
   },
   feedbackCard: {
@@ -889,11 +893,12 @@ const styles = StyleSheet.create({
   feedbackTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: colors.success,
+    color: '#111827',
     marginBottom: spacing.sm,
   },
   feedbackText: {
-    color: colors.text,
+    color: '#9CA3AF',
+    fontSize: 14,
     lineHeight: 21,
     fontWeight: "400",
   },
@@ -907,11 +912,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingVertical: spacing.lg,
     alignItems: "center",
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   primaryButtonText: {
     color: colors.surface,
@@ -920,8 +922,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderWidth: 0,
     borderRadius: 24,
     paddingVertical: spacing.lg,
     alignItems: "center",
@@ -939,11 +940,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 0,
     marginBottom: spacing.lg,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   profileAvatar: {
     width: 64,
@@ -953,11 +951,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.lg,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   profileAvatarText: {
     color: colors.surface,
@@ -970,11 +965,13 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.text,
+    color: '#111827',
   },
   profileEmail: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
     marginTop: spacing.sm,
+    fontSize: 12,
+    lineHeight: 18,
   },
   settingsCard: {
     backgroundColor: colors.surface,
@@ -982,30 +979,28 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     padding: spacing.lg,
     marginBottom: spacing.lg,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomWidth: 0,
   },
   settingTitle: {
-    color: colors.text,
+    color: '#111827',
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 21,
   },
   settingSubtitle: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
     marginTop: spacing.sm,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "400",
+    lineHeight: 18,
   },
   statsGrid: {
     flexDirection: "row",
@@ -1017,21 +1012,19 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: spacing.md,
     borderWidth: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 1,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   profileStatValue: {
     fontSize: 18,
     fontWeight: "700",
-    color: colors.text,
+    color: '#111827',
   },
   profileStatLabel: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
     marginTop: spacing.sm,
     fontSize: 12,
     fontWeight: "400",
+    lineHeight: 18,
   },
 });
