@@ -1,4 +1,4 @@
-import { ScreenKey, QuizQuestion, QuestionSetCard } from '../data/funfantiContent';
+import { ScreenKey, QuizQuestion, QuestionSetCard, QuestionSetFilters } from '../data/funfantiContent';
 
 export type AppTab = 'home' | 'discover' | 'quiz' | 'profile';
 
@@ -17,6 +17,12 @@ export type BootstrapState = {
   interests: string[];
   filterChips: string[];
   questionSets: QuestionSetCard[];
+  questionSetsLoading: boolean;
+  questionSetsError: string | null;
+  questionSetSearchQuery: string;
+  questionSetFilters: QuestionSetFilters;
+  bookmarkedQuestionSetIds: string[];
+  activeQuestionSetId: string;
   quizQuestions: QuizQuestion[];
   stats: ReadonlyArray<{ label: string; value: string }>;
   quizIndex: number;

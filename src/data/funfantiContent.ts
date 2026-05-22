@@ -1,3 +1,5 @@
+import type { ImageSourcePropType } from 'react-native';
+
 export type ScreenKey =
   | 'splash'
   | 'onboarding-1'
@@ -18,6 +20,7 @@ export type ScreenKey =
 export type QuizChoice = {
   id: string;
   label: string;
+  letter?: string;
   correct?: boolean;
 };
 
@@ -28,6 +31,7 @@ export type QuizQuestion = {
   explanation: string;
   artTone: string;
   imageUrl?: string;
+  imageSource?: ImageSourcePropType;
   choices: QuizChoice[];
 };
 
@@ -39,7 +43,33 @@ export type QuestionSetCard = {
   progress: number;
   accent: string;
   artTone: string;
-  imageUrl: string;
+  imageUrl?: string;
+  imageSource?: ImageSourcePropType;
+  tags: string[];
+  questionCount: number;
+  avgRating: number;
+  sessionCount: number;
+  isFeatured: boolean;
+};
+
+export type QuestionSetSort = 'popular' | 'latest' | 'rating';
+
+export type QuestionSetFilters = {
+  search?: string;
+  tags?: string[];
+  minQuestions?: number;
+  maxQuestions?: number;
+  minRating?: number;
+  maxRating?: number;
+  sort?: QuestionSetSort;
+  isFeatured?: boolean;
+};
+
+const questionSetImages = {
+  ussr: require('../../assets/question-sets/ussr-101.png'),
+  starterSea: require('../../assets/question-sets/starter-sea-quiz.png'),
+  aquatic: require('../../assets/question-sets/aquatic-ecosystems.png'),
+  napoleon: require('../../assets/question-sets/napoleonic-wars.png'),
 };
 
 export const onboardingSlides = [
@@ -77,33 +107,63 @@ export const interests = [
 export const questionSets: QuestionSetCard[] = [
   {
     id: 'qs-1',
-    title: 'Starter Quiz',
-    topic: 'Featured',
-    subtitle: 'Build momentum with a short mixed-difficulty quiz.',
+    title: 'USSR 101',
+    topic: 'History',
+    subtitle: 'A focused sprint through early Soviet history, symbols, and major turning points.',
     progress: 0.68,
-    accent: '#d7f2c8',
-    artTone: '#cdecc4',
-    imageUrl: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80',
+    accent: '#E9FBFD',
+    artTone: '#E6F9FB',
+    imageSource: questionSetImages.ussr,
+    tags: ['History', 'Russia', 'Modern History'],
+    questionCount: 30,
+    avgRating: 4.8,
+    sessionCount: 128,
+    isFeatured: true,
   },
   {
     id: 'qs-2',
-    title: 'Ocean Facts',
-    topic: 'Science & Tech',
-    subtitle: 'Explore oceans, habitats, and marine life.',
+    title: 'Starter Sea Quiz',
+    topic: 'Ocean',
+    subtitle: 'Quick ocean facts about waves, habitats, and marine life.',
     progress: 0.46,
-    accent: '#d4f1ff',
-    artTone: '#c7e7ff',
-    imageUrl: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80',
+    accent: '#E9FBFD',
+    artTone: '#DDF7FA',
+    imageSource: questionSetImages.starterSea,
+    tags: ['Ocean', 'Nature', 'Fun Facts'],
+    questionCount: 2,
+    avgRating: 4.7,
+    sessionCount: 94,
+    isFeatured: true,
   },
   {
     id: 'qs-3',
-    title: 'Myths & Culture',
-    topic: 'Art & Culture',
-    subtitle: 'Quick prompts about stories, symbols, and traditions.',
+    title: 'Aquatic Ecosystems',
+    topic: 'Science',
+    subtitle: 'Explore reefs, ocean zones, and how aquatic habitats stay balanced.',
     progress: 0.24,
-    accent: '#f8e7c1',
-    artTone: '#f6ddb2',
-    imageUrl: 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?auto=format&fit=crop&w=1200&q=80',
+    accent: '#E9FBFD',
+    artTone: '#DDF7FA',
+    imageSource: questionSetImages.aquatic,
+    tags: ['Ocean', 'Nature', 'Science'],
+    questionCount: 30,
+    avgRating: 4.4,
+    sessionCount: 52,
+    isFeatured: false,
+  },
+  {
+    id: 'qs-4',
+    title: 'The Napoleonic Wars',
+    topic: 'History',
+    subtitle: 'A compact timeline of campaigns, coalitions, and consequences.',
+    progress: 0.18,
+    accent: '#E9FBFD',
+    artTone: '#E6F9FB',
+    imageSource: questionSetImages.napoleon,
+    tags: ['History', 'France', 'Modern History'],
+    questionCount: 40,
+    avgRating: 4.5,
+    sessionCount: 76,
+    isFeatured: false,
   },
 ];
 

@@ -4,7 +4,8 @@ import { Feather } from '@expo/vector-icons';
 import { colors } from "../theme/colors";
 import { spacing, borderRadius, shadows, gradients } from "../theme/spacing";
 import type { AppTab } from "./screenTypes";
-import type { QuestionSetCard, QuizQuestion } from "../data/funfantiContent";
+import { QuestionSetsScreen } from './QuestionSetsScreen';
+import type { QuestionSetCard, QuestionSetFilters, QuizQuestion } from "../data/funfantiContent";
 
 type MainFlowProps = {
   screen: "home" | "discover" | "quiz" | "result" | "profile";
@@ -15,6 +16,12 @@ type MainFlowProps = {
   onStartQuiz: () => void;
   onBackToHome: () => void;
   questionSets: QuestionSetCard[];
+  questionSetsLoading: boolean;
+  questionSetsError: string | null;
+  questionSetSearchQuery: string;
+  questionSetFilters: QuestionSetFilters;
+  bookmarkedQuestionSetIds: string[];
+  questionSetActionLoadingId: string | null;
   quizQuestions: QuizQuestion[];
   filterChips: string[];
   stats: ReadonlyArray<{ label: string; value: string }>;
@@ -27,6 +34,11 @@ type MainFlowProps = {
   hapticsEnabled: boolean;
   notificationOverlay: boolean;
   onSelectChoice: (choiceId: string) => void;
+  onChangeQuestionSetSearch: (value: string) => void;
+  onApplyQuestionSetFilters: (filters: QuestionSetFilters) => void;
+  onResetQuestionSetFilters: () => void;
+  onStartQuestionSet: (questionSet: QuestionSetCard) => void;
+  onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
   onContinueHome: () => void;
   onUpdateTheme: (value: boolean) => void;
@@ -44,6 +56,12 @@ export function MainFlow(props: MainFlowProps) {
     onStartQuiz,
     onBackToHome,
     questionSets,
+    questionSetsLoading,
+    questionSetsError,
+    questionSetSearchQuery,
+    questionSetFilters,
+    bookmarkedQuestionSetIds,
+    questionSetActionLoadingId,
     quizQuestions,
     filterChips,
     stats,
@@ -56,6 +74,11 @@ export function MainFlow(props: MainFlowProps) {
     hapticsEnabled,
     notificationOverlay,
     onSelectChoice,
+    onChangeQuestionSetSearch,
+    onApplyQuestionSetFilters,
+    onResetQuestionSetFilters,
+    onStartQuestionSet,
+    onToggleQuestionSetBookmark,
     onRetryQuiz,
     onContinueHome,
     onUpdateTheme,
@@ -65,6 +88,8 @@ export function MainFlow(props: MainFlowProps) {
 
   const truncateText = (value: string, maxLength = 30) =>
     value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
+
+  const featuredQuestionSet = questionSets[0];
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -132,17 +157,31 @@ export function MainFlow(props: MainFlowProps) {
           </Pressable>
         </View>
 
-        <Pressable style={styles.featuredCard} onPress={onStartQuiz}>
-          <ArtBlock tone={colors.brandGreenSoft} variant="hero" imageUrl={questionSets[0].imageUrl} />
-          <View style={styles.featuredContent}>
-            <Text style={styles.featuredTag}>Starter Quiz</Text>
-            <Text style={styles.featuredTitle}>{truncateText(questionSets[0].title, 30)}</Text>
-            <Text style={styles.featuredText}>{truncateText(questionSets[0].subtitle, 54)}</Text>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${questionSets[0].progress * 100}%` as `${number}%` }]} />
+        {featuredQuestionSet ? (
+          <Pressable style={styles.featuredCard} onPress={() => onStartQuestionSet(featuredQuestionSet)}>
+            <ArtBlock
+              tone={colors.brandGreenSoft}
+              variant="hero"
+              imageUrl={featuredQuestionSet.imageUrl}
+              imageSource={featuredQuestionSet.imageSource}
+            />
+            <View style={styles.featuredContent}>
+              <Text style={styles.featuredTag}>Starter Quiz</Text>
+              <Text style={styles.featuredTitle}>{truncateText(featuredQuestionSet.title, 30)}</Text>
+              <Text style={styles.featuredText}>{truncateText(featuredQuestionSet.subtitle, 54)}</Text>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${featuredQuestionSet.progress * 100}%` as `${number}%` }]} />
+              </View>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={styles.featuredCard}>
+            <View style={styles.featuredContent}>
+              <Text style={styles.featuredTitle}>No featured sets yet</Text>
+              <Text style={styles.featuredText}>Try clearing your current search or filters.</Text>
             </View>
           </View>
-        </Pressable>
+        )}
 
         <View style={styles.listSectionHeader}>
           <Text style={styles.listSectionTitle}>Recommended courses</Text>
@@ -179,9 +218,9 @@ export function MainFlow(props: MainFlowProps) {
             <Pressable
               key={set.id}
               style={[styles.courseCard, { backgroundColor: bgColor }]}
-              onPress={onStartQuiz}
+              onPress={() => onStartQuestionSet(set)}
             >
-              <ArtBlock tone={set.artTone} variant="card" imageUrl={set.imageUrl} />
+              <ArtBlock tone={set.artTone} variant="card" imageUrl={set.imageUrl} imageSource={set.imageSource} />
               <View style={styles.courseBody}>
                 <Text style={[styles.courseTopic, { color: textColor }]}>{truncateText(set.topic, 24)}</Text>
                 <Text style={styles.courseTitle}>{truncateText(set.title, 30)}</Text>
@@ -199,49 +238,22 @@ export function MainFlow(props: MainFlowProps) {
   );
 
   const renderDiscover = () => (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.appContent}>
-        <ScreenHeader
-          title="Question Sets"
-          subtitle={`Search and filter bite-sized quizzes around ${selectedInterest.toLowerCase()}.`}
-        />
-        <View style={styles.searchBar}>
-          <Feather name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search topic"
-            placeholderTextColor="#7d7d7d"
-          />
-          <View style={styles.filterDot} />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {filterChips.map((chip) => (
-            <Pressable key={chip} style={styles.filterChip}>
-              <Text style={styles.filterChipText}>{chip}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {questionSets.map((set) => (
-          <Pressable key={set.id} style={styles.discoveryCard} onPress={onStartQuiz}>
-            <ArtBlock tone={set.artTone} variant="card" imageUrl={set.imageUrl} />
-            <View style={styles.discoveryBody}>
-              <Text style={styles.discoveryTitle}>{truncateText(set.title, 30)}</Text>
-              <Text style={styles.discoveryMeta}>{truncateText(set.topic, 24)}</Text>
-              <Text style={styles.discoveryText}>{truncateText(set.subtitle, 54)}</Text>
-              <View style={styles.discoveryFooter}>
-                <Text style={styles.discoveryProgress}>
-                  {Math.round(set.progress * 100)}% complete
-                </Text>
-                <Text style={styles.discoveryAction}>Start</Text>
-              </View>
-            </View>
-          </Pressable>
-        ))}
-      </ScrollView>
-      {renderBottomNav()}
-    </SafeAreaView>
+    <QuestionSetsScreen
+      activeTab={activeTab}
+      questionSets={questionSets}
+      questionSetsLoading={questionSetsLoading}
+      questionSetsError={questionSetsError}
+      searchQuery={questionSetSearchQuery}
+      filters={questionSetFilters}
+      bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
+      questionSetActionLoadingId={questionSetActionLoadingId}
+      onSelectTab={onSelectTab}
+      onChangeSearchQuery={onChangeQuestionSetSearch}
+      onApplyFilters={onApplyQuestionSetFilters}
+      onResetFilters={onResetQuestionSetFilters}
+      onPlayQuestionSet={onStartQuestionSet}
+      onToggleBookmark={onToggleQuestionSetBookmark}
+    />
   );
 
   const renderQuiz = () => (
@@ -259,7 +271,12 @@ export function MainFlow(props: MainFlowProps) {
         </View>
 
         <View style={styles.quizCard}>
-          <ArtBlock tone={currentQuestion.artTone} variant="quiz" imageUrl={currentQuestion.imageUrl} />
+          <ArtBlock
+            tone={currentQuestion.artTone}
+            variant="quiz"
+            imageUrl={currentQuestion.imageUrl}
+            imageSource={currentQuestion.imageSource}
+          />
           <Text style={styles.quizQuestion}>{truncateText(currentQuestion.prompt, 80)}</Text>
 
           <View style={styles.choiceStack}>
@@ -274,7 +291,7 @@ export function MainFlow(props: MainFlowProps) {
                   ]}
                   onPress={() => onSelectChoice(choice.id)}
                 >
-                  <Text style={styles.choiceLetter}>{choice.id.toUpperCase()}</Text>
+                  <Text style={styles.choiceLetter}>{(choice.letter ?? choice.id).toUpperCase()}</Text>
                   <Text style={styles.choiceText}>{choice.label}</Text>
                 </Pressable>
               );

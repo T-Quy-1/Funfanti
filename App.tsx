@@ -24,6 +24,8 @@ import {
   onboardingSlides as defaultOnboardingSlides,
   questionSets as defaultQuestionSets,
   quizQuestions as defaultQuizQuestions,
+  QuestionSetCard,
+  QuestionSetFilters,
   ScreenKey,
   stats as defaultStats,
 } from './src/data/funfantiContent';
@@ -48,6 +50,13 @@ export default function App() {
   const [interests, setInterests] = useState(defaultInterests);
   const [filterChips, setFilterChips] = useState(defaultFilterChips);
   const [questionSets, setQuestionSets] = useState(defaultQuestionSets);
+  const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
+  const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
+  const [questionSetSearchQuery, setQuestionSetSearchQuery] = useState('');
+  const [questionSetFilters, setQuestionSetFilters] = useState<QuestionSetFilters>({});
+  const [bookmarkedQuestionSetIds, setBookmarkedQuestionSetIds] = useState<string[]>([]);
+  const [questionSetActionLoadingId, setQuestionSetActionLoadingId] = useState<string | null>(null);
+  const [activeQuestionSetId, setActiveQuestionSetId] = useState(defaultQuestionSets[0]?.id ?? 'starter-quiz');
   const [quizQuestions, setQuizQuestions] = useState(defaultQuizQuestions);
   const [stats, setStats] = useState(defaultStats);
   const [quizIndex, setQuizIndex] = useState(0);
@@ -69,6 +78,7 @@ export default function App() {
       setOnboardingSlides(payload.onboardingSlides);
       setInterests(payload.interests);
       setQuestionSets(payload.questionSets);
+      setActiveQuestionSetId(payload.questionSets[0]?.id ?? defaultQuestionSets[0]?.id ?? 'starter-quiz');
       setQuizQuestions(payload.quizQuestions);
       setStats(payload.stats);
       setRegisterName(payload.profile.displayName);
@@ -89,7 +99,44 @@ export default function App() {
     };
   }, []);
 
-  const currentQuestion = quizQuestions[quizIndex];
+  useEffect(() => {
+    let mounted = true;
+    const timeoutId = setTimeout(() => {
+      const search = questionSetSearchQuery.trim();
+      setQuestionSetsLoading(true);
+      setQuestionSetsError(null);
+
+      void funfantiApi
+        .getQuestionSets({
+          ...questionSetFilters,
+          search: search || undefined,
+        })
+        .then((nextQuestionSets) => {
+          if (mounted) {
+            setQuestionSets(nextQuestionSets);
+          }
+        })
+        .catch((error) => {
+          if (mounted) {
+            setQuestionSetsError(
+              error instanceof Error ? error.message : 'Unable to refresh question sets.',
+            );
+          }
+        })
+        .finally(() => {
+          if (mounted) {
+            setQuestionSetsLoading(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [questionSetFilters, questionSetSearchQuery]);
+
+  const currentQuestion = quizQuestions[quizIndex] ?? defaultQuizQuestions[0];
 
   const scoreSummary = useMemo(() => {
     const answerCount = Object.keys(answers).length;
@@ -143,17 +190,20 @@ export default function App() {
   };
 
   const submitChoice = (choiceId: string) => {
-    setSelectedChoice(choiceId);
-    setAnswers((currentAnswers) => ({ ...currentAnswers, [currentQuestion.id]: choiceId }));
-
+    const nextAnswers = { ...answers, [currentQuestion.id]: choiceId };
     const isCorrect = currentQuestion.choices.find((choice) => choice.id === choiceId)?.correct;
+    const nextScore = isCorrect ? score + 1 : score;
+
+    setSelectedChoice(choiceId);
+    setAnswers(nextAnswers);
+
     if (isCorrect) {
-      setScore((currentScore) => currentScore + 1);
+      setScore(nextScore);
     }
 
     const nextIndex = quizIndex + 1;
     if (nextIndex >= quizQuestions.length) {
-      submitQuizSession();
+      submitQuizSession(nextAnswers);
       setScreen('result');
       return;
     }
@@ -172,6 +222,41 @@ export default function App() {
     setSelectedChoice(null);
     setScreen('quiz');
     setActiveTab('quiz');
+  };
+
+  const startQuestionSet = async (questionSet: QuestionSetCard) => {
+    setActiveQuestionSetId(questionSet.id);
+    setQuestionSetActionLoadingId(questionSet.id);
+
+    try {
+      const nextQuestions = await funfantiApi.getQuestionSetQuestions(questionSet.id);
+      setQuizQuestions(nextQuestions.length > 0 ? nextQuestions : defaultQuizQuestions);
+    } finally {
+      setQuestionSetActionLoadingId(null);
+      startQuiz();
+    }
+  };
+
+  const applyQuestionSetFilters = (filters: QuestionSetFilters) => {
+    const { search: _search, ...nextFilters } = filters;
+    setQuestionSetFilters(nextFilters);
+  };
+
+  const resetQuestionSetFilters = () => {
+    setQuestionSetFilters({});
+  };
+
+  const toggleQuestionSetBookmark = (questionSet: QuestionSetCard) => {
+    const alreadyBookmarked = bookmarkedQuestionSetIds.includes(questionSet.id);
+    setBookmarkedQuestionSetIds((current) =>
+      alreadyBookmarked
+        ? current.filter((id) => id !== questionSet.id)
+        : [...current, questionSet.id],
+    );
+
+    void (alreadyBookmarked
+      ? funfantiApi.removeQuestionSetBookmark(questionSet.id, authToken)
+      : funfantiApi.bookmarkQuestionSet(questionSet.id, authToken));
   };
 
   const handleRegister = async () => {
@@ -255,17 +340,19 @@ export default function App() {
     );
   };
 
-  const submitQuizSession = () => {
-    void funfantiApi.submitQuizSession({
-      questionSetId: questionSets[0]?.id ?? 'starter-quiz',
-      totalTimeMs: quizQuestions.length * 12000,
-      score,
-      responses: quizQuestions.map((question) => ({
-        questionId: question.id,
-        selectedAnswerId: answers[question.id] ?? null,
-        timeTakenMs: 12000,
-      })),
-    });
+  const submitQuizSession = (finalAnswers: Record<string, string> = answers) => {
+    void funfantiApi.submitQuizSession(
+      activeQuestionSetId,
+      {
+        totalTimeMs: quizQuestions.length * 12000,
+        responses: quizQuestions.map((question) => ({
+          questionId: question.id,
+          selectedAnswerId: finalAnswers[question.id] ?? undefined,
+          timeTakenMs: 12000,
+        })),
+      },
+      authToken,
+    );
   };
 
   const renderBottomNav = () => (
@@ -916,6 +1003,12 @@ export default function App() {
               setActiveTab('home');
             }}
             questionSets={questionSets}
+            questionSetsLoading={questionSetsLoading}
+            questionSetsError={questionSetsError}
+            questionSetSearchQuery={questionSetSearchQuery}
+            questionSetFilters={questionSetFilters}
+            bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
+            questionSetActionLoadingId={questionSetActionLoadingId}
             quizQuestions={quizQuestions}
             filterChips={filterChips}
             stats={stats}
@@ -928,6 +1021,11 @@ export default function App() {
             hapticsEnabled={hapticsEnabled}
             notificationOverlay={notificationOverlay}
             onSelectChoice={submitChoice}
+            onChangeQuestionSetSearch={setQuestionSetSearchQuery}
+            onApplyQuestionSetFilters={applyQuestionSetFilters}
+            onResetQuestionSetFilters={resetQuestionSetFilters}
+            onStartQuestionSet={startQuestionSet}
+            onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
             onRetryQuiz={startQuiz}
             onContinueHome={() => {
               setScreen('home');
@@ -979,6 +1077,12 @@ export default function App() {
               setActiveTab('home');
             }}
             questionSets={questionSets}
+            questionSetsLoading={questionSetsLoading}
+            questionSetsError={questionSetsError}
+            questionSetSearchQuery={questionSetSearchQuery}
+            questionSetFilters={questionSetFilters}
+            bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
+            questionSetActionLoadingId={questionSetActionLoadingId}
             quizQuestions={quizQuestions}
             filterChips={filterChips}
             stats={stats}
@@ -991,6 +1095,11 @@ export default function App() {
             hapticsEnabled={hapticsEnabled}
             notificationOverlay={notificationOverlay}
             onSelectChoice={submitChoice}
+            onChangeQuestionSetSearch={setQuestionSetSearchQuery}
+            onApplyQuestionSetFilters={applyQuestionSetFilters}
+            onResetQuestionSetFilters={resetQuestionSetFilters}
+            onStartQuestionSet={startQuestionSet}
+            onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
             onRetryQuiz={startQuiz}
             onContinueHome={() => {
               setScreen('home');
