@@ -37,16 +37,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 28,
-    color: colors.text,
+    color: '#111827',
     fontWeight: '600',
     lineHeight: 36,
     letterSpacing: -0.5,
   },
   sectionSubtitle: {
     marginTop: spacing.md,
-    color: colors.textMuted,
-    lineHeight: 24,
-    fontSize: 15,
+    color: '#9CA3AF',
+    lineHeight: 18,
+    fontSize: 12,
     fontWeight: '400',
   },
 });

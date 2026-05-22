@@ -130,7 +130,6 @@ export function IntroFlow({
         {renderLogo('onboarding')}
         {renderDots()}
         <Text style={styles.onboardingTitle}>{slide.title}</Text>
-        <Text style={styles.onboardingText}>{slide.description}</Text>
         <View style={styles.onboardingActions}>
           {renderOutlineButton('Skip', onGoToApp)}
           {renderOutlineButton(activeSlide === onboardingSlides.length - 1 ? 'Next' : 'Next', onAdvanceOnboarding, true)}
