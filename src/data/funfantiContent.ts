@@ -167,6 +167,10 @@ export const questionSets: QuestionSetCard[] = [
   },
 ];
 
+export const questionSetTags = Array.from(
+  new Set(questionSets.flatMap((questionSet) => questionSet.tags)),
+);
+
 export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q1',

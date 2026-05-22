@@ -16,6 +16,7 @@ type MainFlowProps = {
   onStartQuiz: () => void;
   onBackToHome: () => void;
   questionSets: QuestionSetCard[];
+  questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
   questionSetSearchQuery: string;
@@ -36,7 +37,6 @@ type MainFlowProps = {
   onSelectChoice: (choiceId: string) => void;
   onChangeQuestionSetSearch: (value: string) => void;
   onApplyQuestionSetFilters: (filters: QuestionSetFilters) => void;
-  onResetQuestionSetFilters: () => void;
   onStartQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
@@ -56,6 +56,7 @@ export function MainFlow(props: MainFlowProps) {
     onStartQuiz,
     onBackToHome,
     questionSets,
+    questionSetTags,
     questionSetsLoading,
     questionSetsError,
     questionSetSearchQuery,
@@ -76,7 +77,6 @@ export function MainFlow(props: MainFlowProps) {
     onSelectChoice,
     onChangeQuestionSetSearch,
     onApplyQuestionSetFilters,
-    onResetQuestionSetFilters,
     onStartQuestionSet,
     onToggleQuestionSetBookmark,
     onRetryQuiz,
@@ -241,6 +241,7 @@ export function MainFlow(props: MainFlowProps) {
     <QuestionSetsScreen
       activeTab={activeTab}
       questionSets={questionSets}
+      questionSetTags={questionSetTags}
       questionSetsLoading={questionSetsLoading}
       questionSetsError={questionSetsError}
       searchQuery={questionSetSearchQuery}
@@ -250,7 +251,6 @@ export function MainFlow(props: MainFlowProps) {
       onSelectTab={onSelectTab}
       onChangeSearchQuery={onChangeQuestionSetSearch}
       onApplyFilters={onApplyQuestionSetFilters}
-      onResetFilters={onResetQuestionSetFilters}
       onPlayQuestionSet={onStartQuestionSet}
       onToggleBookmark={onToggleQuestionSetBookmark}
     />

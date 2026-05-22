@@ -23,6 +23,7 @@ import {
   interests as defaultInterests,
   onboardingSlides as defaultOnboardingSlides,
   questionSets as defaultQuestionSets,
+  questionSetTags as defaultQuestionSetTags,
   quizQuestions as defaultQuizQuestions,
   QuestionSetCard,
   QuestionSetFilters,
@@ -50,6 +51,7 @@ export default function App() {
   const [interests, setInterests] = useState(defaultInterests);
   const [filterChips, setFilterChips] = useState(defaultFilterChips);
   const [questionSets, setQuestionSets] = useState(defaultQuestionSets);
+  const [questionSetTags, setQuestionSetTags] = useState(defaultQuestionSetTags);
   const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
   const [questionSetSearchQuery, setQuestionSetSearchQuery] = useState('');
@@ -78,6 +80,7 @@ export default function App() {
       setOnboardingSlides(payload.onboardingSlides);
       setInterests(payload.interests);
       setQuestionSets(payload.questionSets);
+      setQuestionSetTags(payload.questionSetTags);
       setActiveQuestionSetId(payload.questionSets[0]?.id ?? defaultQuestionSets[0]?.id ?? 'starter-quiz');
       setQuizQuestions(payload.quizQuestions);
       setStats(payload.stats);
@@ -240,10 +243,6 @@ export default function App() {
   const applyQuestionSetFilters = (filters: QuestionSetFilters) => {
     const { search: _search, ...nextFilters } = filters;
     setQuestionSetFilters(nextFilters);
-  };
-
-  const resetQuestionSetFilters = () => {
-    setQuestionSetFilters({});
   };
 
   const toggleQuestionSetBookmark = (questionSet: QuestionSetCard) => {
@@ -1003,6 +1002,7 @@ export default function App() {
               setActiveTab('home');
             }}
             questionSets={questionSets}
+            questionSetTags={questionSetTags}
             questionSetsLoading={questionSetsLoading}
             questionSetsError={questionSetsError}
             questionSetSearchQuery={questionSetSearchQuery}
@@ -1023,7 +1023,6 @@ export default function App() {
             onSelectChoice={submitChoice}
             onChangeQuestionSetSearch={setQuestionSetSearchQuery}
             onApplyQuestionSetFilters={applyQuestionSetFilters}
-            onResetQuestionSetFilters={resetQuestionSetFilters}
             onStartQuestionSet={startQuestionSet}
             onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
             onRetryQuiz={startQuiz}
@@ -1077,6 +1076,7 @@ export default function App() {
               setActiveTab('home');
             }}
             questionSets={questionSets}
+            questionSetTags={questionSetTags}
             questionSetsLoading={questionSetsLoading}
             questionSetsError={questionSetsError}
             questionSetSearchQuery={questionSetSearchQuery}
@@ -1097,7 +1097,6 @@ export default function App() {
             onSelectChoice={submitChoice}
             onChangeQuestionSetSearch={setQuestionSetSearchQuery}
             onApplyQuestionSetFilters={applyQuestionSetFilters}
-            onResetQuestionSetFilters={resetQuestionSetFilters}
             onStartQuestionSet={startQuestionSet}
             onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
             onRetryQuiz={startQuiz}

@@ -33,7 +33,7 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
             >
               <Feather
                 name={item.icon}
-                size={20}
+                size={active ? 27 : 24}
                 color={active ? colors.brand : colors.surface}
               />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
@@ -49,33 +49,37 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
 
 const styles = StyleSheet.create({
   container: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 16,
     backgroundColor: 'transparent',
     paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: colors.brand,
     borderTopWidth: 0,
     borderRadius: 360,
-    height: 58,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    height: 76,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     shadowOpacity: 0,
     elevation: 0,
     alignItems: 'center',
   },
   navItem: {
     flex: 1,
-    height: 46,
+    height: 60,
     borderRadius: 360,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 5,
   },
   navItemActive: {
-    flex: 1.25,
+    flex: 1.46,
     backgroundColor: colors.surface,
   },
   navItemPressed: {
@@ -84,8 +88,8 @@ const styles = StyleSheet.create({
   navLabel: {
     color: colors.surface,
     fontWeight: '400',
-    fontSize: 8,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 15,
     letterSpacing: 0,
   },
   navLabelActive: {

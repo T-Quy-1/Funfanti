@@ -2,6 +2,7 @@ import {
   interests,
   onboardingSlides,
   questionSets,
+  questionSetTags,
   quizQuestions,
   stats,
   QuestionSetCard,
@@ -25,6 +26,7 @@ export type AuthResponse = {
 
 type BootstrapPayload = {
   questionSets: typeof questionSets;
+  questionSetTags: string[];
   quizQuestions: typeof quizQuestions;
   stats: typeof stats;
   interests: typeof interests;
@@ -262,6 +264,8 @@ const fetchQuestionSets = async (filters: QuestionSetFilters = {}) => {
   return remoteQuestionSets.map(mapRemoteQuestionSet);
 };
 
+const fetchQuestionSetTags = async () => requestJson<string[]>('/question-sets/tags');
+
 const mapRemoteQuestions = (
   payload: RemoteQuestionSetPayload,
   fallbackSet?: QuestionSetCard,
@@ -294,6 +298,7 @@ export const funfantiApi = {
     return withFallback(
       {
         questionSets,
+        questionSetTags,
         quizQuestions,
         stats,
         interests,
@@ -304,10 +309,14 @@ export const funfantiApi = {
         },
       },
       async () => {
-        const remoteQuestionSets = await fetchQuestionSets();
+        const [remoteQuestionSets, remoteTags] = await Promise.all([
+          fetchQuestionSets(),
+          fetchQuestionSetTags(),
+        ]);
 
         return {
           questionSets: remoteQuestionSets.length > 0 ? remoteQuestionSets : questionSets,
+          questionSetTags: remoteTags.length > 0 ? remoteTags : questionSetTags,
           quizQuestions,
           stats,
           interests,
@@ -332,6 +341,7 @@ export const funfantiApi = {
     }),
   getQuestionSets: (filters: QuestionSetFilters = {}) =>
     withFallback(applyLocalQuestionSetFilters(questionSets, filters), () => fetchQuestionSets(filters)),
+  getQuestionSetTags: () => withFallback(questionSetTags, fetchQuestionSetTags),
   getQuestionSetQuestions: (questionSetId: string) =>
     withFallback(quizQuestions, async () => {
       const payload = await requestJson<RemoteQuestionSetPayload>(

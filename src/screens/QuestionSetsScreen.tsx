@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   SafeAreaView,
@@ -52,6 +55,7 @@ type RatingFilterKey = 'minRating' | 'maxRating';
 type QuestionSetsScreenProps = {
   activeTab: AppTab;
   questionSets: QuestionSetCard[];
+  questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
   searchQuery: string;
@@ -61,7 +65,6 @@ type QuestionSetsScreenProps = {
   onSelectTab: (tab: AppTab) => void;
   onChangeSearchQuery: (value: string) => void;
   onApplyFilters: (filters: QuestionSetFilters) => void;
-  onResetFilters: () => void;
   onPlayQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleBookmark: (questionSet: QuestionSetCard) => void;
 };
@@ -90,7 +93,25 @@ const parseRatingText = (value: string) => {
   return clampRating(rating);
 };
 
-const defaultRatingForKey = (key: RatingFilterKey) => (key === 'minRating' ? 4 : 5);
+const defaultRatingForKey = (key: RatingFilterKey) => (key === 'minRating' ? 0 : 5);
+
+const hasRatingFilter = (filters: QuestionSetFilters) =>
+  (filters.minRating !== undefined && filters.minRating > 0) ||
+  (filters.maxRating !== undefined && filters.maxRating < 5);
+
+const hasActiveQuestionSetFilters = (filters: QuestionSetFilters) =>
+  Boolean(
+    filters.tags?.length ||
+      filters.minQuestions !== undefined ||
+      filters.maxQuestions !== undefined ||
+      hasRatingFilter(filters) ||
+      filters.sort,
+  );
+
+const splitTagsIntoRows = (tags: string[]) => {
+  const rowBreak = Math.ceil(tags.length / 2);
+  return [tags.slice(0, rowBreak), tags.slice(rowBreak)];
+};
 
 const withoutQuestionRange = (filters: QuestionSetFilters): QuestionSetFilters => {
   const { minQuestions, maxQuestions, ...rest } = filters;
@@ -103,19 +124,26 @@ const withoutSort = (filters: QuestionSetFilters): QuestionSetFilters => {
 };
 
 const normalizeRatingRange = (filters: QuestionSetFilters): QuestionSetFilters => {
+  let normalizedFilters = filters;
+
   if (
     filters.minRating !== undefined &&
     filters.maxRating !== undefined &&
     filters.minRating > filters.maxRating
   ) {
-    return {
+    normalizedFilters = {
       ...filters,
       minRating: filters.maxRating,
       maxRating: filters.minRating,
     };
   }
 
-  return filters;
+  const { minRating, maxRating, ...rest } = normalizedFilters;
+  return {
+    ...rest,
+    ...(minRating !== undefined && minRating > 0 ? { minRating } : {}),
+    ...(maxRating !== undefined && maxRating < 5 ? { maxRating } : {}),
+  };
 };
 
 const resolveImageSource = (questionSet: QuestionSetCard): ImageSourcePropType | undefined => {
@@ -245,6 +273,7 @@ function ChoiceChip({
 export function QuestionSetsScreen({
   activeTab,
   questionSets,
+  questionSetTags,
   questionSetsLoading,
   questionSetsError,
   searchQuery,
@@ -254,7 +283,6 @@ export function QuestionSetsScreen({
   onSelectTab,
   onChangeSearchQuery,
   onApplyFilters,
-  onResetFilters,
   onPlayQuestionSet,
   onToggleBookmark,
 }: QuestionSetsScreenProps) {
@@ -263,21 +291,64 @@ export function QuestionSetsScreen({
   const [draftMinRatingText, setDraftMinRatingText] = useState(formatRatingInputValue(filters.minRating));
   const [draftMaxRatingText, setDraftMaxRatingText] = useState(formatRatingInputValue(filters.maxRating));
   const [questionCountHelpVisible, setQuestionCountHelpVisible] = useState(false);
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
   const searchActive = searchQuery.trim().length > 0;
-  const resultLabel = searchActive
-    ? `Found ${questionSets.length} ${questionSets.length === 1 ? 'result' : 'results'} ...`
-    : 'Featured';
+  const hasActiveFilters = hasActiveQuestionSetFilters(filters);
+  const showFeatured = !searchActive && !hasActiveFilters;
+
+  const availableTags = useMemo(
+    () => Array.from(new Set(questionSetTags.map((tag) => tag.trim()).filter(Boolean))),
+    [questionSetTags],
+  );
+  const tagRows = useMemo(() => splitTagsIntoRows(availableTags), [availableTags]);
 
   const activeFilterCount = useMemo(() => {
     const tagCount = filters.tags?.length ?? 0;
     const rangeCount = filters.minQuestions !== undefined || filters.maxQuestions !== undefined ? 1 : 0;
-    const ratingCount = filters.minRating !== undefined || filters.maxRating !== undefined ? 1 : 0;
+    const ratingCount = hasRatingFilter(filters) ? 1 : 0;
     const sortCount = filters.sort ? 1 : 0;
     return tagCount + rangeCount + ratingCount + sortCount;
   }, [filters]);
 
+  const dismissFilterSheet = useCallback(() => {
+    Animated.timing(sheetTranslateY, {
+      toValue: 520,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setFilterVisible(false);
+      sheetTranslateY.setValue(0);
+    });
+  }, [sheetTranslateY]);
+
+  const sheetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          gestureState.dy > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onPanResponderMove: (_event, gestureState) => {
+          sheetTranslateY.setValue(Math.max(0, gestureState.dy));
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+          if (gestureState.dy > 90 || gestureState.vy > 0.9) {
+            dismissFilterSheet();
+            return;
+          }
+
+          Animated.spring(sheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 90,
+            friction: 12,
+          }).start();
+        },
+      }),
+    [dismissFilterSheet, sheetTranslateY],
+  );
+
   const openFilters = () => {
+    sheetTranslateY.setValue(0);
     setDraftFilters(filters);
     setDraftMinRatingText(formatRatingInputValue(filters.minRating));
     setDraftMaxRatingText(formatRatingInputValue(filters.maxRating));
@@ -356,7 +427,7 @@ export function QuestionSetsScreen({
   const applyDraftFilters = () => {
     const normalizedFilters = normalizeRatingRange(draftFilters);
     onApplyFilters(normalizedFilters);
-    setFilterVisible(false);
+    dismissFilterSheet();
   };
 
   const resetDraftFilters = () => {
@@ -364,13 +435,14 @@ export function QuestionSetsScreen({
     setDraftMinRatingText('');
     setDraftMaxRatingText('');
     setQuestionCountHelpVisible(false);
-    onResetFilters();
   };
 
   return (
-    <SafeAreaView style={styles.page}>
+    <View style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Question Sets</Text>
+        <SafeAreaView style={styles.headerSafeArea}>
+          <Text style={styles.headerTitle}>Question Sets</Text>
+        </SafeAreaView>
       </View>
 
       <View style={styles.searchRow}>
@@ -397,14 +469,14 @@ export function QuestionSetsScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.resultsTitle, searchActive && styles.resultsTitleSearch]}>
-          {searchActive ? (
+        <Text style={[styles.resultsTitle, !showFeatured && styles.resultsTitleSearch]}>
+          {showFeatured ? (
+            'Featured'
+          ) : (
             <>
               Found <Text style={styles.resultsCount}>{questionSets.length}</Text>{' '}
               {questionSets.length === 1 ? 'result' : 'results'} ...
             </>
-          ) : (
-            resultLabel
           )}
         </Text>
 
@@ -433,22 +505,35 @@ export function QuestionSetsScreen({
 
       <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
 
-      <Modal visible={filterVisible} transparent animationType="none" onRequestClose={() => setFilterVisible(false)}>
+      <Modal visible={filterVisible} transparent animationType="none" onRequestClose={dismissFilterSheet}>
         <View style={styles.modalRoot}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setFilterVisible(false)} />
-          <View style={styles.filterSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetTitleRow}>
-                <Text style={styles.sheetTitle}>Filters</Text>
-                <Feather name="sliders" size={20} color={palette.primary} />
+          <Pressable style={styles.modalBackdrop} onPress={dismissFilterSheet} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}
+            pointerEvents="box-none"
+            style={styles.modalKeyboardAvoiding}
+          >
+            <Animated.View
+              style={[styles.filterSheet, { transform: [{ translateY: sheetTranslateY }] }]}
+              {...sheetPanResponder.panHandlers}
+            >
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View style={styles.sheetTitleRow}>
+                  <Text style={styles.sheetTitle}>Filters</Text>
+                  <Feather name="sliders" size={20} color={palette.primary} />
+                </View>
+                <Pressable style={styles.sheetCloseButton} onPress={dismissFilterSheet}>
+                  <Feather name="x" size={18} color={palette.navy} />
+                </Pressable>
               </View>
-              <Pressable style={styles.sheetCloseButton} onPress={() => setFilterVisible(false)}>
-                <Feather name="x" size={18} color={palette.navy} />
-              </Pressable>
-            </View>
 
-            <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                contentContainerStyle={styles.sheetContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
               <View style={styles.filterSection}>
                 <View style={styles.filterTitleRow}>
                   <Text style={styles.filterSectionTitle}>Number of Questions</Text>
@@ -487,16 +572,26 @@ export function QuestionSetsScreen({
 
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>Tags</Text>
-                <View style={styles.wrapRow}>
-                  {tagOptions.map((tag) => (
-                    <ChoiceChip
-                      key={tag}
-                      active={(draftFilters.tags ?? []).includes(tag)}
-                      label={tag}
-                      onPress={() => toggleDraftTag(tag)}
-                    />
-                  ))}
-                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.tagGridScroller}
+                >
+                  <View style={styles.tagRows}>
+                    {tagRows.map((row, rowIndex) => (
+                      <View key={`tag-row-${rowIndex}`} style={styles.tagFilterRow}>
+                        {row.map((tag) => (
+                          <ChoiceChip
+                            key={tag}
+                            active={(draftFilters.tags ?? []).includes(tag)}
+                            label={tag}
+                            onPress={() => toggleDraftTag(tag)}
+                          />
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
               </View>
 
               <View style={styles.filterSection}>
@@ -515,7 +610,7 @@ export function QuestionSetsScreen({
                     <TextInput
                       keyboardType="decimal-pad"
                       maxLength={3}
-                      placeholder="4.0"
+                      placeholder="0.0"
                       placeholderTextColor={palette.muted}
                       style={styles.ratingInput}
                       value={draftMinRatingText}
@@ -584,11 +679,12 @@ export function QuestionSetsScreen({
                   <Text style={styles.confirmButtonText}>Confirm</Text>
                 </Pressable>
               </View>
-            </ScrollView>
-          </View>
+              </ScrollView>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -598,13 +694,18 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white,
   },
   header: {
-    height: 158,
+    minHeight: 118,
     backgroundColor: palette.primary,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    overflow: 'hidden',
+  },
+  headerSafeArea: {
+    minHeight: 118,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? 24 : 0,
+    paddingBottom: 20,
   },
   headerTitle: {
     color: palette.white,
@@ -668,7 +769,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 23,
-    paddingBottom: 104,
+    paddingBottom: 144,
   },
   resultsTitle: {
     color: palette.primary,
@@ -902,6 +1003,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     zIndex: 1000,
   },
+  modalKeyboardAvoiding: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   modalBackdrop: {
     position: 'absolute',
     top: 0,
@@ -911,7 +1016,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,18,69,0.28)',
   },
   filterSheet: {
-    maxHeight: '78%',
+    maxHeight: '84%',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     backgroundColor: palette.sheet,
@@ -1006,6 +1111,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  tagGridScroller: {
+    paddingRight: 20,
+  },
+  tagRows: {
+    gap: 10,
+  },
+  tagFilterRow: {
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 29,
   },
   choiceChip: {
     minHeight: 29,

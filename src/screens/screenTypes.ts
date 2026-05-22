@@ -17,6 +17,7 @@ export type BootstrapState = {
   interests: string[];
   filterChips: string[];
   questionSets: QuestionSetCard[];
+  questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
   questionSetSearchQuery: string;
