@@ -1,17 +1,37 @@
 import { Image, StyleSheet, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { FunfantiLogo } from './FunfantiLogo';
+
+const localAssetMap: Record<string, number> = {
+  splash: require('../../assets/splash-icon.png'),
+  icon: require('../../assets/icon.png'),
+  adaptive: require('../../assets/adaptive-icon.png'),
+};
 
 type ArtBlockProps = {
   tone: string;
   variant: 'hero' | 'card' | 'quiz';
   imageUrl?: string;
+  showLogo?: boolean;
 };
 
-export function ArtBlock({ tone, variant, imageUrl }: ArtBlockProps) {
+export function ArtBlock({ tone, variant, imageUrl, showLogo = true }: ArtBlockProps) {
+  const logoSize = variant === 'hero' ? 64 : 40;
+  const fallbackAsset = localAssetMap.splash;
+  const localAsset = imageUrl ? localAssetMap[imageUrl] : undefined;
+  const remoteAsset = imageUrl && /^https?:\/\//.test(imageUrl) ? { uri: imageUrl } : undefined;
+  const resolvedSource = localAsset ?? remoteAsset ?? fallbackAsset;
+
   return (
     <View style={[styles.base, styles[variant], { backgroundColor: tone }]}>
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+      {resolvedSource ? (
+        <Image source={resolvedSource} style={styles.image} resizeMode="cover" />
+      ) : null}
+      <View style={styles.gradientOverlay} />
+      {showLogo ? (
+        <View style={[StyleSheet.absoluteFillObject, styles.logoOverlay]}>
+          <FunfantiLogo size={logoSize} />
+        </View>
       ) : null}
     </View>
   );
@@ -24,6 +44,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     width: '100%',
+  },
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   image: {
     position: 'absolute',
@@ -50,6 +74,10 @@ const styles = StyleSheet.create({
     minHeight: 200,
     borderRadius: 24,
     marginBottom: 20,
+  },
+  logoOverlay: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   icon: {
     width: 68,

@@ -27,14 +27,17 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
               style={({ pressed }) => [styles.navItem, pressed && styles.navItemPressed]}
               onPress={() => onSelect(item.key)}
             >
-              <Feather
-                name={item.icon}
-                size={18}
-                color={active ? colors.brand : colors.textMuted}
-              />
+              <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
+                <Feather
+                  name={item.icon}
+                  size={18}
+                  color={active ? colors.brand : '#9CA3AF'}
+                />
+              </View>
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                 {item.label}
               </Text>
+              <View style={[styles.activeDot, active ? styles.activeDotActive : styles.activeDotInactive]} />
             </Pressable>
           );
         })}
@@ -65,8 +68,14 @@ const styles = StyleSheet.create({
   navItemPressed: {
     opacity: 0.8,
   },
+  iconWrap: {
+    transform: [{ scale: 1 }],
+  },
+  iconWrapActive: {
+    transform: [{ scale: 1.08 }],
+  },
   navLabel: {
-    color: colors.textMuted,
+    color: '#9CA3AF',
     fontWeight: '500',
     fontSize: 11,
     letterSpacing: 0.3,
@@ -74,5 +83,18 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: colors.brand,
     fontWeight: '600',
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.brand,
+    opacity: 0,
+  },
+  activeDotActive: {
+    opacity: 1,
+  },
+  activeDotInactive: {
+    opacity: 0,
   },
 });

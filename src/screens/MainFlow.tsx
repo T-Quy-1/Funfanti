@@ -1,4 +1,5 @@
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import { ArtBlock, BottomNav, ScreenHeader, LogoBrand, EnhancedCard, StatCard } from "../components";
 import { Feather } from '@expo/vector-icons';
 import { colors } from "../theme/colors";
@@ -72,7 +73,12 @@ export function MainFlow(props: MainFlowProps) {
     <SafeAreaView style={styles.page}>
       <ScrollView contentContainerStyle={styles.appContent}>
         <ScreenHeader title="Home" subtitle={`Good evening, ${registerName.split(" ")[0]}.`} />
-        <View style={styles.bannerCard}>
+        <LinearGradient
+          colors={['#EEF2FF', '#ECFEFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.bannerCard}
+        >
           <View style={styles.bannerCopy}>
             <Text style={styles.bannerEyebrow}>Daily learning</Text>
             <Text style={styles.bannerTitle}>Short sessions, better retention.</Text>
@@ -83,7 +89,7 @@ export function MainFlow(props: MainFlowProps) {
           <View style={styles.bannerArtWrap}>
             <ArtBlock tone={colors.brandGreenSoft} variant="hero" />
           </View>
-        </View>
+        </LinearGradient>
 
         <View style={styles.profileMiniRow}>
           <View>
@@ -100,7 +106,7 @@ export function MainFlow(props: MainFlowProps) {
             title="Questions today"
             value={stats[0]?.value || '18'}
             iconName="help-circle"
-            backgroundColor={colors.surface}
+            toneIndex={0}
             accentColor={colors.brand}
             textColor="#111827"
           />
@@ -109,7 +115,7 @@ export function MainFlow(props: MainFlowProps) {
             value={stats[1]?.value || '12'}
             unit="days"
             iconName="zap"
-            backgroundColor={colors.surface}
+            toneIndex={1}
             accentColor={colors.brand}
             textColor="#111827"
             trend="up"
@@ -119,7 +125,7 @@ export function MainFlow(props: MainFlowProps) {
             title="Saved sets"
             value={stats[2]?.value || '24'}
             iconName="bookmark"
-            backgroundColor={colors.surface}
+            toneIndex={2}
             accentColor={colors.brand}
             textColor="#111827"
           />
@@ -132,8 +138,14 @@ export function MainFlow(props: MainFlowProps) {
           </Pressable>
         </View>
 
-        <Pressable style={styles.featuredCard} onPress={onStartQuiz}>
-          <ArtBlock tone={colors.brandGreenSoft} variant="hero" imageUrl={questionSets[0].imageUrl} />
+        <EnhancedCard
+          isFeatured
+          gradientColors={['#6366F1', '#3B82F6']}
+          onPress={onStartQuiz}
+          style={styles.featuredCard}
+          size="lg"
+        >
+          <ArtBlock tone={colors.brand} variant="hero" imageUrl={questionSets[0].imageUrl} showLogo={false} />
           <View style={styles.featuredContent}>
             <Text style={styles.featuredTag}>Starter Quiz</Text>
             <Text style={styles.featuredTitle}>{truncateText(questionSets[0].title, 30)}</Text>
@@ -142,7 +154,7 @@ export function MainFlow(props: MainFlowProps) {
               <View style={[styles.progressFill, { width: `${questionSets[0].progress * 100}%` as `${number}%` }]} />
             </View>
           </View>
-        </Pressable>
+        </EnhancedCard>
 
         <View style={styles.listSectionHeader}>
           <Text style={styles.listSectionTitle}>Recommended courses</Text>
@@ -253,9 +265,11 @@ export function MainFlow(props: MainFlowProps) {
             <Text style={styles.backLabel}>Back</Text>
           </Pressable>
           <Text style={styles.quizMeta}>{truncateText(currentQuestion.topic, 24)}</Text>
-          <Text style={styles.quizCounter}>
-            {quizIndex + 1} of {quizQuestions.length}
-          </Text>
+          <View style={styles.counterBadge}>
+            <Text style={styles.counterBadgeText}>
+              {quizIndex + 1} of {quizQuestions.length}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.quizCard}>
@@ -307,11 +321,15 @@ export function MainFlow(props: MainFlowProps) {
           </View>
           <View style={styles.resultGrid}>
             <View style={styles.resultMetricCard}>
-              <Text style={styles.resultMetricValue}>{scoreSummary.answered}</Text>
+              <View style={styles.metricBadge}>
+                <Text style={styles.resultMetricValue}>{scoreSummary.answered}</Text>
+              </View>
               <Text style={styles.resultMetricLabel}>Answered</Text>
             </View>
             <View style={styles.resultMetricCard}>
-              <Text style={styles.resultMetricValue}>{compare}</Text>
+              <View style={styles.metricBadge}>
+                <Text style={styles.resultMetricValue}>{compare}</Text>
+              </View>
               <Text style={styles.resultMetricLabel}>Compared to peers</Text>
             </View>
           </View>
@@ -421,7 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     overflow: "hidden",
-    marginBottom: spacing.lg,
+    marginBottom: 14,
     borderWidth: 0,
     shadowOpacity: 0,
     elevation: 0,
@@ -443,8 +461,9 @@ const styles = StyleSheet.create({
   bannerTitle: {
     color: '#111827',
     fontSize: 24,
-    lineHeight: 36,
-    fontWeight: "600",
+    lineHeight: 34,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
   bannerText: {
     color: '#9CA3AF',
@@ -494,7 +513,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: 14,
     justifyContent: 'space-between',
   },
   statCard: {
@@ -511,20 +530,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   featuredCard: {
-    marginBottom: spacing.xl,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    marginBottom: 14,
+    padding: 0,
     overflow: "hidden",
-    borderWidth: 0,
-    shadowOpacity: 0,
-    elevation: 0,
   },
   featuredContent: {
     padding: spacing.lg,
   },
   featuredTag: {
-    color: '#9CA3AF',
-    fontWeight: "400",
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: spacing.sm,
@@ -532,14 +547,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   featuredTitle: {
-    color: '#111827',
-    fontSize: 20,
-    fontWeight: "700",
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     marginBottom: spacing.sm,
     lineHeight: 30,
   },
   featuredText: {
-    color: '#9CA3AF',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 14,
     lineHeight: 21,
     marginBottom: spacing.lg,
@@ -548,7 +564,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: 12,
   },
   listSectionTitle: {
     color: '#111827',
@@ -599,13 +615,13 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 8,
     borderRadius: 999,
-    backgroundColor: "rgba(15,33,71,0.12)",
+    backgroundColor: "rgba(255,255,255,0.25)",
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: colors.brand,
+    backgroundColor: '#FFFFFF',
   },
   searchBar: {
     flexDirection: "row",
@@ -733,10 +749,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 18,
   },
-  quizCounter: {
-    color: '#9CA3AF',
+  counterBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(79, 70, 229, 0.08)',
+  },
+  counterBadgeText: {
+    color: '#111827',
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: '800',
     lineHeight: 18,
   },
   quizCard: {
@@ -748,9 +770,10 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   quizQuestion: {
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: "700",
+    fontSize: 22,
+    lineHeight: 33,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: '#111827',
     marginBottom: spacing.lg,
   },
@@ -762,17 +785,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 0,
     borderRadius: 24,
-    paddingVertical: spacing.md,
+    paddingVertical: 18,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
   },
   choiceCorrect: {
     backgroundColor: '#ECFDF5',
     borderColor: 'transparent',
+    transform: [{ scale: 1.01 }],
   },
   choiceWrong: {
     backgroundColor: '#FEF2F2',
     borderColor: 'transparent',
+    transform: [{ scale: 1.01 }],
   },
   choiceLetter: {
     width: 32,
@@ -875,6 +900,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: "700",
     fontSize: 20,
+  },
+  metricBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(79, 70, 229, 0.08)',
+    marginBottom: spacing.sm,
   },
   resultMetricLabel: {
     color: '#9CA3AF',

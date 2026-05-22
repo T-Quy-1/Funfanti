@@ -11,6 +11,8 @@ interface StatCardProps {
   iconName?: React.ComponentProps<typeof Feather>['name'];
   gradient?: string;
   backgroundColor?: string;
+  toneIndex?: number;
+  isFeatured?: boolean;
   textColor?: string;
   accentColor?: string;
   trend?: 'up' | 'down' | 'neutral';
@@ -23,12 +25,20 @@ export function StatCard({
   unit,
   iconName = 'bar-chart-2',
   gradient,
-  backgroundColor = colors.surface,
+  backgroundColor,
+  toneIndex = 0,
+  isFeatured = false,
   textColor = colors.text,
   accentColor = colors.brandGreen,
   trend,
   trendValue,
 }: StatCardProps) {
+  const pastelPalette = ['#ECFDF5', '#F5F3FF', '#FFF7ED', '#F0F9FF'];
+  const resolvedBackground = isFeatured
+    ? colors.brand
+    : backgroundColor ?? pastelPalette[toneIndex % pastelPalette.length];
+  const resolvedTextColor = isFeatured ? '#FFFFFF' : textColor;
+  const resolvedAccentColor = isFeatured ? '#FFFFFF' : accentColor;
   const getTrendColor = () => {
     switch (trend) {
       case 'up':
@@ -54,14 +64,14 @@ export function StatCard({
   return (
     <View style={[
       styles.card,
-      { backgroundColor },
+      { backgroundColor: resolvedBackground },
     ]}>
       {/* Icon and title area */}
       <View style={styles.header}>
-        <View style={[styles.iconBubble, { backgroundColor: `${accentColor}1A` }]}>
-          <Feather name={iconName} size={16} color={accentColor} />
+        <View style={[styles.iconBubble, { backgroundColor: isFeatured ? 'rgba(255,255,255,0.2)' : `${accentColor}1A` }]}>
+          <Feather name={iconName} size={16} color={resolvedAccentColor} />
         </View>
-        <Text style={[styles.title, { color: textColor }]}>
+        <Text style={[styles.title, { color: isFeatured ? 'rgba(255,255,255,0.85)' : '#9CA3AF' }]}>
           {title}
         </Text>
       </View>
@@ -69,11 +79,11 @@ export function StatCard({
       {/* Value area */}
       <View style={styles.valueContainer}>
         <View style={styles.mainValue}>
-          <Text style={[styles.value, { color: accentColor }]}>
+          <Text style={[styles.value, { color: resolvedTextColor }]}>
             {value}
           </Text>
           {unit && (
-            <Text style={[styles.unit, { color: textColor }]}>
+            <Text style={[styles.unit, { color: isFeatured ? 'rgba(255,255,255,0.8)' : '#9CA3AF' }]}>
               {unit}
             </Text>
           )}
@@ -81,14 +91,11 @@ export function StatCard({
 
         {/* Trend badge */}
         {trend && trendValue && (
-          <View style={[
-            styles.trendBadge,
-            { borderColor: getTrendColor() }
-          ]}>
-            <Text style={[styles.trendSymbol, { color: getTrendColor() }]}>
+          <View style={styles.trendBadge}>
+            <Text style={[styles.trendSymbol, { color: isFeatured ? '#FFFFFF' : getTrendColor() }]}>
               {getTrendSymbol()}
             </Text>
-            <Text style={[styles.trendValue, { color: getTrendColor() }]}>
+            <Text style={[styles.trendValue, { color: isFeatured ? '#FFFFFF' : getTrendColor() }]}>
               {trendValue}
             </Text>
           </View>
@@ -101,7 +108,7 @@ export function StatCard({
 const styles = StyleSheet.create({
   card: {
     padding: spacing.lg,
-    borderRadius: borderRadius.lg,
+    borderRadius: 24,
     shadowOpacity: 0,
     elevation: 0,
   },

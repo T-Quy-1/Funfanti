@@ -97,7 +97,11 @@ export function IntroFlow({
         </View>
         <Text style={styles.onboardingTitle}>{slide.title}</Text>
         <View style={styles.onboardingActions}>
-          <Pressable style={styles.linkButton} onPress={onGoToApp}>
+          <Pressable
+            style={styles.linkButton}
+            onPress={onGoToApp}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Text style={styles.linkButtonText}>Skip</Text>
           </Pressable>
           <Pressable style={styles.primaryButton} onPress={onAdvanceOnboarding}>
@@ -200,31 +204,32 @@ const styles = StyleSheet.create({
   onboardingActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 28,
+    gap: 10,
+    marginTop: 20,
   },
   linkButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
-    minHeight: 46,
+    minHeight: 42,
   },
   linkButtonText: {
     color: '#9CA3AF',
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontWeight: '500',
+    fontSize: 14,
+    letterSpacing: 0.1,
   },
   primaryButton: {
     backgroundColor: colors.brand,
     borderRadius: 999,
-    paddingVertical: 15,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   primaryButtonText: {
     color: colors.surface,
-    fontWeight: '800',
-    fontSize: 15,
+    fontWeight: '700',
+    fontSize: 14,
   },
   interestContainer: {
     flexGrow: 1,
@@ -235,28 +240,29 @@ const styles = StyleSheet.create({
   interestGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -6,
+    gap: 10,
   },
   interestChip: {
-    width: '48%',
-    marginHorizontal: '1%',
-    backgroundColor: colors.lime,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    flexGrow: 1,
+    flexBasis: 'auto',
+    alignSelf: 'flex-start',
   },
   interestChipActive: {
-    backgroundColor: colors.brand,
+    backgroundColor: '#4F46E5',
   },
   interestChipText: {
-    color: '#111827',
-    fontWeight: '700',
-    textAlign: 'center',
+    color: '#4B5563',
+    fontWeight: '600',
+    textAlign: 'left',
   },
   interestChipTextActive: {
-    color: colors.surface,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   noteCard: {
     marginTop: 18,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { spacing, borderRadius } from '../theme/spacing';
 
@@ -7,8 +8,10 @@ interface EnhancedCardProps {
   title?: string;
   subtitle?: string;
   description?: string;
-  gradient?: string;
+  gradientColors?: string[];
   backgroundColor?: string;
+  toneIndex?: number;
+  isFeatured?: boolean;
   accentColor?: string;
   imageUrl?: string;
   badge?: string;
@@ -24,8 +27,10 @@ export function EnhancedCard({
   title,
   subtitle,
   description,
-  gradient,
-  backgroundColor = colors.surface,
+  gradientColors,
+  backgroundColor,
+  toneIndex = 0,
+  isFeatured = false,
   accentColor = colors.brandGreen,
   imageUrl,
   badge,
@@ -43,15 +48,23 @@ export function EnhancedCard({
   };
 
   const borderRadiusSize = {
-    sm: borderRadius.md,
-    md: borderRadius.lg,
-    lg: borderRadius.xl,
+    sm: 20,
+    md: 24,
+    lg: 28,
   };
+
+  const pastelPalette = ['#ECFDF5', '#F5F3FF', '#FFF7ED', '#F0F9FF'];
+  const resolvedBackground = isFeatured
+    ? colors.brand
+    : backgroundColor ?? pastelPalette[toneIndex % pastelPalette.length];
+  const resolvedTextColor = isFeatured ? '#FFFFFF' : '#111827';
+  const resolvedMutedColor = isFeatured ? 'rgba(255,255,255,0.8)' : '#9CA3AF';
+  const resolvedGradient = gradientColors ?? (isFeatured ? ['#4F46E5', '#22D3EE'] : undefined);
 
   const containerStyle = {
     padding: paddingMap[size],
     borderRadius: borderRadiusSize[size],
-    backgroundColor,
+    backgroundColor: resolvedBackground,
     ...(variant === 'outlined' && {
       borderWidth: 0,
     }),
@@ -65,6 +78,15 @@ export function EnhancedCard({
       disabled={!onPress}
       style={[containerStyle, style]}
     >
+      {resolvedGradient ? (
+        <LinearGradient
+          colors={resolvedGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gradientOverlay, { borderRadius: borderRadiusSize[size] }]}
+        />
+      ) : null}
+
       {/* Image background if provided */}
       {imageUrl && (
         <Image
@@ -74,14 +96,6 @@ export function EnhancedCard({
             { borderRadius: borderRadiusSize[size] }
           ]}
         />
-      )}
-
-      {/* Gradient overlay */}
-      {gradient && (
-        <View style={[
-          styles.gradientOverlay,
-          { borderRadius: borderRadiusSize[size] }
-        ]} />
       )}
 
       {/* Badge */}
@@ -97,17 +111,17 @@ export function EnhancedCard({
       {/* Content */}
       <View style={styles.content}>
         {title && (
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={[styles.title, { color: resolvedTextColor }]} numberOfLines={2}>
             {title}
           </Text>
         )}
         {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={[styles.subtitle, { color: resolvedMutedColor }]} numberOfLines={1}>
             {subtitle}
           </Text>
         )}
         {description && (
-          <Text style={styles.description} numberOfLines={3}>
+          <Text style={[styles.description, { color: resolvedMutedColor }]} numberOfLines={3}>
             {description}
           </Text>
         )}
@@ -127,12 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   gradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 160,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    ...StyleSheet.absoluteFillObject,
   },
   badge: {
     alignSelf: 'flex-start',
