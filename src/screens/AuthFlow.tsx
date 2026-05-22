@@ -1,21 +1,37 @@
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ArtBlock } from '../components/ArtBlock';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { colors } from '../theme/colors';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+
+const logoElephant = require('../../assets/funfanti-elephant.png');
+const logoWordmark = require('../../assets/funfanti-wordmark.png');
+
+const palette = {
+  primary: '#269D54',
+  navy: '#081245',
+  black: '#020202',
+  blackSoft: '#161616',
+  white: '#FFFFFF',
+  error: '#DC2626',
+};
 
 type AuthFlowProps = {
-  screen: 'auth-select' | 'register' | 'login' | 'auth-success';
+  screen: 'auth-select' | 'login-method' | 'register' | 'login' | 'auth-success';
   loginEmail: string;
   loginPassword: string;
   registerEmail: string;
   registerPassword: string;
+  registerConfirmPassword: string;
   registerName: string;
+  authLoading: boolean;
+  authError: string | null;
   onChangeLoginEmail: (value: string) => void;
   onChangeLoginPassword: (value: string) => void;
   onChangeRegisterEmail: (value: string) => void;
   onChangeRegisterPassword: (value: string) => void;
+  onChangeRegisterConfirmPassword: (value: string) => void;
   onChangeRegisterName: (value: string) => void;
   onBackToIntro: () => void;
+  onGoToLoginMethod: () => void;
+  onGoToRegisterMethod: () => void;
   onGoToLogin: () => void;
   onGoToRegister: () => void;
   onSubmitRegister: () => void;
@@ -29,57 +45,117 @@ export function AuthFlow({
   loginPassword,
   registerEmail,
   registerPassword,
+  registerConfirmPassword,
   registerName,
+  authLoading,
+  authError,
   onChangeLoginEmail,
   onChangeLoginPassword,
   onChangeRegisterEmail,
   onChangeRegisterPassword,
+  onChangeRegisterConfirmPassword,
   onChangeRegisterName,
   onBackToIntro,
+  onGoToLoginMethod,
+  onGoToRegisterMethod,
   onGoToLogin,
   onGoToRegister,
   onSubmitRegister,
   onSubmitLogin,
   onCompleteSuccess,
 }: AuthFlowProps) {
+  const showUnsupportedProvider = (provider: string) => {
+    Alert.alert(`${provider} sign-in`, 'This backend currently supports email and password authentication only.');
+  };
+
+  const renderLogo = () => (
+    <View style={styles.logoBlock}>
+      <Image source={logoElephant} style={styles.logoElephant} resizeMode="contain" />
+      <Image source={logoWordmark} style={styles.logoWordmark} resizeMode="contain" />
+    </View>
+  );
+
+  const renderMethodButton = (label: string, onPress: () => void) => (
+    <Pressable style={({ pressed }) => [styles.methodButton, pressed && styles.pressed]} onPress={onPress}>
+      <Text style={styles.methodButtonText}>{label}</Text>
+    </Pressable>
+  );
+
+  const renderBackButton = () => (
+    <Pressable style={styles.backButton} onPress={onBackToIntro}>
+      <Feather name="chevron-left" size={24} color={palette.black} />
+      <Text style={styles.backText}>Back</Text>
+    </Pressable>
+  );
+
   if (screen === 'auth-success') {
     return (
       <View style={styles.successScreen}>
         <View style={styles.successCircle}>
-          <Text style={styles.successCheck}>✓</Text>
+          <Feather name="check" size={66} color={palette.white} />
         </View>
         <Text style={styles.successTitle}>You're All Set!</Text>
-        <Pressable style={styles.successButton} onPress={onCompleteSuccess}>
-          <Text style={styles.successButtonText}>Continue</Text>
-        </Pressable>
+        <Pressable style={styles.successHitArea} onPress={onCompleteSuccess} />
+      </View>
+    );
+  }
+
+  if (screen === 'auth-select' || screen === 'login-method') {
+    const isLoginMethod = screen === 'login-method';
+
+    return (
+      <View style={styles.page}>
+        <ScrollView contentContainerStyle={styles.methodContainer}>
+          {renderLogo()}
+          <Text style={styles.methodTitle}>{isLoginMethod ? 'Login Account' : 'Create Account'}</Text>
+
+          <View style={styles.methodStack}>
+            {renderMethodButton(
+              isLoginMethod ? 'Login with E-mail or Phone number' : 'Register with E-mail or Phone number',
+              isLoginMethod ? onGoToLogin : onGoToRegister,
+            )}
+            {renderMethodButton(isLoginMethod ? 'Login with Google' : 'Register with Google', () => showUnsupportedProvider('Google'))}
+            {renderMethodButton(isLoginMethod ? 'Login with Apple' : 'Register with Apple', () => showUnsupportedProvider('Apple'))}
+            {renderMethodButton(isLoginMethod ? 'Login with Facebook' : 'Register with Facebook', () => showUnsupportedProvider('Facebook'))}
+          </View>
+
+          <View style={styles.methodFooter}>
+            <Text style={styles.methodFooterText}>
+              {isLoginMethod ? "Don't have an account?" : 'Already have an account?'}
+            </Text>
+            <Pressable
+              style={({ pressed }) => [styles.smallOutlineButton, pressed && styles.pressed]}
+              onPress={isLoginMethod ? onGoToRegisterMethod : onGoToLoginMethod}
+            >
+              <Text style={styles.smallOutlineText}>{isLoginMethod ? 'Create Account' : 'Login'}</Text>
+              <Feather name="chevron-right" size={22} color={palette.black} />
+            </Pressable>
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
   if (screen === 'register') {
     return (
-      <SafeAreaView style={styles.page}>
-        <ScrollView contentContainerStyle={styles.formContainer}>
-          <Pressable onPress={onBackToIntro}>
-            <Text style={styles.backLabel}>‹ Back</Text>
-          </Pressable>
-          <View style={styles.brandArt}>
-            <ArtBlock tone={colors.brandGreenSoft} variant="card" />
-          </View>
-          <Text style={styles.formTitle}>Create your account</Text>
+      <View style={styles.page}>
+        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+          {renderBackButton()}
+          <Text style={styles.formTitle}>{`Create your\naccount`}</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.inputActive]}
             value={registerEmail}
-            onChangeText={onChangeRegisterEmail}
-            placeholder="Email address"
+            onChangeText={(value) => {
+              onChangeRegisterEmail(value);
+              if (!registerName) {
+                onChangeRegisterName(value.split('@')[0]);
+              }
+            }}
+            placeholder="john.doe@gmail.com"
             placeholderTextColor="#7d7d7d"
-          />
-          <TextInput
-            style={styles.input}
-            value={registerName}
-            onChangeText={onChangeRegisterName}
-            placeholder="Full name"
-            placeholderTextColor="#7d7d7d"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
           />
           <TextInput
             style={styles.input}
@@ -88,33 +164,49 @@ export function AuthFlow({
             placeholder="Password"
             placeholderTextColor="#7d7d7d"
             secureTextEntry
+            textContentType="newPassword"
           />
-          <PrimaryButton label="Create Account" onPress={onSubmitRegister} />
-          <Text style={styles.legalText}>
-            By tapping Create Account you agree to our Terms of Service and Privacy Policy.
+          <TextInput
+            style={styles.input}
+            value={registerConfirmPassword}
+            onChangeText={onChangeRegisterConfirmPassword}
+            placeholder="Confirm password"
+            placeholderTextColor="#7d7d7d"
+            secureTextEntry
+            textContentType="newPassword"
+          />
+          {authError ? <Text style={styles.errorText} selectable>{authError}</Text> : null}
+          <Pressable
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, authLoading && styles.disabled]}
+            onPress={onSubmitRegister}
+            disabled={authLoading}
+          >
+            {authLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.primaryButtonText}>Create Account</Text>}
+          </Pressable>
+          <Text style={styles.legalText} selectable>
+            By clicking "Create Account" your email address will be saved as your sign in account and you agree to our{' '}
+            <Text style={styles.legalLink}>Term & Conditions</Text> and <Text style={styles.legalLink}>Privacy Policy</Text>
           </Text>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (screen === 'login') {
     return (
-      <SafeAreaView style={styles.page}>
-        <ScrollView contentContainerStyle={styles.formContainer}>
-          <Pressable onPress={onBackToIntro}>
-            <Text style={styles.backLabel}>‹ Back</Text>
-          </Pressable>
-          <View style={styles.brandArt}>
-            <ArtBlock tone={colors.mint} variant="card" />
-          </View>
+      <View style={styles.page}>
+        <ScrollView contentContainerStyle={styles.loginFormContainer} keyboardShouldPersistTaps="handled">
+          {renderBackButton()}
           <Text style={styles.formTitle}>Login to your account</Text>
           <TextInput
             style={styles.input}
             value={loginEmail}
             onChangeText={onChangeLoginEmail}
-            placeholder="Email address"
+            placeholder="john.doe@gmail.com"
             placeholderTextColor="#7d7d7d"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
           />
           <TextInput
             style={styles.input}
@@ -123,194 +215,238 @@ export function AuthFlow({
             placeholder="Password"
             placeholderTextColor="#7d7d7d"
             secureTextEntry
+            textContentType="password"
           />
-          <PrimaryButton label="Login" onPress={onSubmitLogin} />
-          <Pressable style={styles.secondaryLink} onPress={onGoToRegister}>
+          {authError ? <Text style={styles.errorText} selectable>{authError}</Text> : null}
+          <Pressable
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, authLoading && styles.disabled]}
+            onPress={onSubmitLogin}
+            disabled={authLoading}
+          >
+            {authLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.primaryButtonText}>Login</Text>}
+          </Pressable>
+          <Pressable style={styles.secondaryLink} onPress={() => showUnsupportedProvider('Password reset')}>
             <Text style={styles.secondaryLinkText}>Forget Password</Text>
           </Pressable>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.authContainer}>
-        <View style={styles.authBadge}>
-          <ArtBlock tone={colors.brandGreen} variant="hero" />
-        </View>
-        <Text style={styles.authTitle}>Create Account</Text>
-        <Text style={styles.authText}>Choose a fast path to get into your learning flow.</Text>
-        <View style={styles.authButtonStack}>
-          <Pressable style={styles.outlineButton} onPress={onGoToRegister}>
-            <Text style={styles.outlineButtonText}>Register with E-mail or Phone number</Text>
-          </Pressable>
-          <Pressable style={styles.outlineButton} onPress={onGoToRegister}>
-            <Text style={styles.outlineButtonText}>Register with Google</Text>
-          </Pressable>
-          <Pressable style={styles.outlineButton} onPress={onGoToRegister}>
-            <Text style={styles.outlineButtonText}>Register with Apple</Text>
-          </Pressable>
-          <Pressable style={styles.outlineButton} onPress={onGoToRegister}>
-            <Text style={styles.outlineButtonText}>Register with Facebook</Text>
-          </Pressable>
-        </View>
-        <View style={styles.linkRow}>
-          <Text style={styles.linkText}>Already have an account?</Text>
-          <Pressable onPress={onGoToLogin}>
-            <Text style={styles.linkAction}>Login</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: palette.white,
   },
-  authContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-  },
-  authBadge: {
+  methodContainer: {
+    minHeight: 852,
     alignItems: 'center',
-    marginBottom: 18,
+    paddingTop: 109,
+    paddingHorizontal: 16,
+    paddingBottom: 42,
   },
-  authTitle: {
-    textAlign: 'center',
+  logoBlock: {
+    alignItems: 'center',
+    height: 232,
+    width: 236,
+  },
+  logoElephant: {
+    width: 178,
+    height: 128,
+  },
+  logoWordmark: {
+    width: 204,
+    height: 136,
+    marginTop: -31,
+  },
+  methodTitle: {
+    color: palette.black,
     fontSize: 30,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  authText: {
+    lineHeight: 40,
+    fontWeight: '400',
     textAlign: 'center',
-    color: colors.textMuted,
-    marginTop: 10,
-    marginBottom: 22,
-    lineHeight: 22,
   },
-  authButtonStack: {
-    gap: 10,
+  methodStack: {
+    width: '100%',
+    maxWidth: 297,
+    gap: 12,
+    marginTop: 17,
   },
-  outlineButton: {
-    borderWidth: 1,
-    borderColor: '#282828',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
+  methodButton: {
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: palette.black,
+    borderRadius: 360,
     alignItems: 'center',
-  },
-  outlineButtonText: {
-    color: colors.text,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  linkRow: {
-    flexDirection: 'row',
     justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  methodButtonText: {
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  methodFooter: {
+    marginTop: 95,
     alignItems: 'center',
-    marginTop: 18,
+    gap: 14,
   },
-  linkText: {
-    color: colors.textMuted,
-    marginRight: 6,
+  methodFooterText: {
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
   },
-  linkAction: {
-    color: colors.brand,
-    fontWeight: '800',
+  smallOutlineButton: {
+    minWidth: 86,
+    height: 40,
+    borderWidth: 1,
+    borderColor: palette.black,
+    borderRadius: 360,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingLeft: 16,
+    paddingRight: 8,
+  },
+  smallOutlineText: {
+    color: palette.black,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
   },
   formContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
+    minHeight: 852,
+    paddingHorizontal: 16,
+    paddingTop: 68,
+    paddingBottom: 40,
   },
-  backLabel: {
-    color: '#19263a',
-    marginBottom: 16,
-    fontSize: 15,
-    fontWeight: '700',
+  loginFormContainer: {
+    minHeight: 852,
+    paddingHorizontal: 16,
+    paddingTop: 68,
+    paddingBottom: 40,
   },
-  brandArt: {
-    marginBottom: 16,
+  backButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  backText: {
+    color: palette.black,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
   },
   formTitle: {
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: '900',
-    color: colors.text,
-    marginBottom: 20,
+    marginTop: 26,
+    marginBottom: 43,
+    color: palette.black,
+    fontSize: 36,
+    lineHeight: 48,
+    fontWeight: '400',
   },
   input: {
-    backgroundColor: colors.surface,
+    width: '100%',
+    height: 48,
+    backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: '#b5bdd5',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    fontSize: 15,
-    color: colors.text,
+    borderColor: palette.black,
+    borderRadius: 360,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 21,
+    color: palette.black,
   },
-  legalText: {
-    marginTop: 18,
+  inputActive: {
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+  },
+  primaryButton: {
+    marginTop: 24,
+    height: 56,
+    width: '100%',
+    borderRadius: 360,
+    backgroundColor: palette.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  primaryButtonText: {
+    color: palette.white,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+  errorText: {
+    color: palette.error,
     fontSize: 12,
-    color: colors.textMuted,
     lineHeight: 18,
     textAlign: 'center',
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  legalText: {
+    marginTop: 219,
+    fontSize: 12,
+    color: palette.black,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  legalLink: {
+    color: palette.primary,
+    fontWeight: '700',
   },
   secondaryLink: {
-    marginTop: 14,
+    marginTop: 25,
     alignItems: 'center',
   },
   secondaryLinkText: {
-    color: colors.brand,
-    fontWeight: '800',
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
   },
   successScreen: {
     flex: 1,
-    backgroundColor: colors.brandGreen,
+    backgroundColor: palette.primary,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingTop: 304,
+    paddingHorizontal: 16,
   },
   successCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: colors.surface,
+    width: 127,
+    height: 127,
+    borderRadius: 64,
+    borderWidth: 5,
+    borderColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-  },
-  successCheck: {
-    color: colors.surface,
-    fontSize: 40,
-    fontWeight: '900',
   },
   successTitle: {
-    color: colors.surface,
-    fontSize: 28,
-    fontWeight: '900',
+    color: palette.white,
+    fontSize: 30,
+    lineHeight: 40,
+    fontWeight: '600',
     textAlign: 'center',
+    marginTop: 48,
   },
-  successButton: {
-    marginTop: 22,
-    backgroundColor: colors.surface,
-    borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+  successHitArea: {
+    ...StyleSheet.absoluteFillObject,
   },
-  successButtonText: {
-    color: colors.brand,
-    fontWeight: '900',
+  pressed: {
+    opacity: 0.72,
+  },
+  disabled: {
+    opacity: 0.72,
   },
 });

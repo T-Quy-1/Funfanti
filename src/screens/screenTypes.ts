@@ -6,6 +6,7 @@ export type BootstrapState = {
   screen: ScreenKey;
   activeSlide: number;
   selectedInterest: string;
+  selectedInterests: string[];
   activeTab: AppTab;
   loginEmail: string;
   loginPassword: string;

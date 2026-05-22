@@ -33,12 +33,17 @@ export default function App() {
   const [screen, setScreen] = useState<ScreenKey>('splash');
   const [activeSlide, setActiveSlide] = useState(0);
   const [selectedInterest, setSelectedInterest] = useState('General Knowledge');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'quiz' | 'profile'>('home');
   const [loginEmail, setLoginEmail] = useState('john.doe@gmail.com');
   const [loginPassword, setLoginPassword] = useState('1234567890');
   const [registerEmail, setRegisterEmail] = useState('john.doe@gmail.com');
   const [registerPassword, setRegisterPassword] = useState('1234567890');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('1234567890');
   const [registerName, setRegisterName] = useState('John Doe');
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [onboardingSlides, setOnboardingSlides] = useState(defaultOnboardingSlides);
   const [interests, setInterests] = useState(defaultInterests);
   const [filterChips, setFilterChips] = useState(defaultFilterChips);
@@ -69,7 +74,7 @@ export default function App() {
       setRegisterName(payload.profile.displayName);
       setRegisterEmail(payload.profile.email);
       setLoginEmail(payload.profile.email);
-      setSelectedInterest(payload.interests[0]);
+      setSelectedInterest(payload.interests[0] ?? 'General Knowledge');
     });
 
     const timer = setTimeout(() => {
@@ -98,6 +103,28 @@ export default function App() {
   const goToMainApp = () => {
     setScreen('home');
     setActiveTab('home');
+  };
+
+  const goToAuthEntry = () => {
+    setAuthError(null);
+    setScreen('auth-select');
+  };
+
+  const toggleInterest = (interest: string) => {
+    setSelectedInterests((currentInterests) =>
+      currentInterests.includes(interest)
+        ? currentInterests.filter((currentInterest) => currentInterest !== interest)
+        : [...currentInterests, interest],
+    );
+  };
+
+  const continueFromInterests = () => {
+    if (selectedInterests.length < 3) {
+      return;
+    }
+
+    setSelectedInterest(selectedInterests[0]);
+    setScreen('auth-select');
   };
 
   const moveOnboarding = (direction: 1 | -1) => {
@@ -148,18 +175,69 @@ export default function App() {
   };
 
   const handleRegister = async () => {
-    await funfantiApi.register({
-      email: registerEmail,
-      password: registerPassword,
-      displayName: registerName,
-    });
-    setScreen('auth-success');
+    const email = registerEmail.trim();
+    const fallbackName = email.split('@')[0] || 'Funfanti Learner';
+
+    if (!email) {
+      setAuthError('Please enter your email address.');
+      return;
+    }
+
+    if (registerPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (registerPassword !== registerConfirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const payload = await funfantiApi.register({
+        email,
+        password: registerPassword,
+        displayName: fallbackName,
+      });
+      setAuthToken(payload.accessToken);
+      setRegisterName(payload.user.displayName || fallbackName);
+      setRegisterEmail(payload.user.email);
+      setLoginEmail(payload.user.email);
+      setScreen('auth-success');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Unable to create your account.');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleLogin = async () => {
-    await funfantiApi.login(loginEmail, loginPassword);
-    setScreen('home');
-    setActiveTab('home');
+    const email = loginEmail.trim();
+
+    if (!email || !loginPassword) {
+      setAuthError('Please enter your email and password.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const payload = await funfantiApi.login(email, loginPassword);
+      setAuthToken(payload.accessToken);
+      setRegisterName(payload.user.displayName || email.split('@')[0] || 'Funfanti Learner');
+      setRegisterEmail(payload.user.email);
+      setLoginEmail(payload.user.email);
+      setScreen('home');
+      setActiveTab('home');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Unable to log in.');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const persistPreferences = (nextState: {
@@ -167,7 +245,14 @@ export default function App() {
     hapticsEnabled: boolean;
     notificationOverlay: boolean;
   }) => {
-    void funfantiApi.updatePreferences(nextState);
+    void funfantiApi.updatePreferences(
+      {
+        theme: nextState.themeEnabled ? 'system' : 'light',
+        hapticsEnabled: nextState.hapticsEnabled,
+        notificationOverlay: nextState.notificationOverlay,
+      },
+      authToken,
+    );
   };
 
   const submitQuizSession = () => {
@@ -674,6 +759,57 @@ export default function App() {
     </SafeAreaView>
   );
 
+  const renderAuthFlowScreen = (
+    authScreen: 'auth-select' | 'login-method' | 'register' | 'login' | 'auth-success',
+    backTarget: ScreenKey = 'auth-select',
+  ) => (
+    <AuthFlow
+      screen={authScreen}
+      loginEmail={loginEmail}
+      loginPassword={loginPassword}
+      registerEmail={registerEmail}
+      registerPassword={registerPassword}
+      registerConfirmPassword={registerConfirmPassword}
+      registerName={registerName}
+      authLoading={authLoading}
+      authError={authError}
+      onChangeLoginEmail={setLoginEmail}
+      onChangeLoginPassword={setLoginPassword}
+      onChangeRegisterEmail={(value) => {
+        setRegisterEmail(value);
+        if (!registerName.trim()) {
+          setRegisterName(value.split('@')[0]);
+        }
+      }}
+      onChangeRegisterPassword={setRegisterPassword}
+      onChangeRegisterConfirmPassword={setRegisterConfirmPassword}
+      onChangeRegisterName={setRegisterName}
+      onBackToIntro={() => {
+        setAuthError(null);
+        setScreen(backTarget);
+      }}
+      onGoToLoginMethod={() => {
+        setAuthError(null);
+        setScreen('login-method');
+      }}
+      onGoToRegisterMethod={() => {
+        setAuthError(null);
+        setScreen('auth-select');
+      }}
+      onGoToLogin={() => {
+        setAuthError(null);
+        setScreen('login');
+      }}
+      onGoToRegister={() => {
+        setAuthError(null);
+        setScreen('register');
+      }}
+      onSubmitRegister={handleRegister}
+      onSubmitLogin={handleLogin}
+      onCompleteSuccess={goToMainApp}
+    />
+  );
+
   const renderScreen = () => {
     switch (screen) {
       case 'splash':
@@ -681,12 +817,12 @@ export default function App() {
           <IntroFlow
             screen={screen}
             activeSlide={activeSlide}
-            selectedInterest={selectedInterest}
+            selectedInterests={selectedInterests}
             interests={interests}
-            onSelectInterest={setSelectedInterest}
-            onGoToApp={goToMainApp}
+            onSelectInterest={toggleInterest}
+            onGoToApp={goToAuthEntry}
             onAdvanceOnboarding={() => moveOnboarding(1)}
-            onContinue={() => setScreen('auth-select')}
+            onContinue={continueFromInterests}
             onSetScreen={setScreen}
           />
         );
@@ -695,12 +831,12 @@ export default function App() {
           <IntroFlow
             screen={screen}
             activeSlide={0}
-            selectedInterest={selectedInterest}
+            selectedInterests={selectedInterests}
             interests={interests}
-            onSelectInterest={setSelectedInterest}
-            onGoToApp={goToMainApp}
+            onSelectInterest={toggleInterest}
+            onGoToApp={goToAuthEntry}
             onAdvanceOnboarding={() => moveOnboarding(1)}
-            onContinue={() => setScreen('auth-select')}
+            onContinue={continueFromInterests}
             onSetScreen={setScreen}
           />
         );
@@ -709,12 +845,12 @@ export default function App() {
           <IntroFlow
             screen={screen}
             activeSlide={1}
-            selectedInterest={selectedInterest}
+            selectedInterests={selectedInterests}
             interests={interests}
-            onSelectInterest={setSelectedInterest}
-            onGoToApp={goToMainApp}
+            onSelectInterest={toggleInterest}
+            onGoToApp={goToAuthEntry}
             onAdvanceOnboarding={() => moveOnboarding(1)}
-            onContinue={() => setScreen('auth-select')}
+            onContinue={continueFromInterests}
             onSetScreen={setScreen}
           />
         );
@@ -723,12 +859,12 @@ export default function App() {
           <IntroFlow
             screen={screen}
             activeSlide={2}
-            selectedInterest={selectedInterest}
+            selectedInterests={selectedInterests}
             interests={interests}
-            onSelectInterest={setSelectedInterest}
-            onGoToApp={goToMainApp}
+            onSelectInterest={toggleInterest}
+            onGoToApp={goToAuthEntry}
             onAdvanceOnboarding={() => setScreen('interests')}
-            onContinue={() => setScreen('auth-select')}
+            onContinue={continueFromInterests}
             onSetScreen={setScreen}
           />
         );
@@ -737,103 +873,25 @@ export default function App() {
           <IntroFlow
             screen={screen}
             activeSlide={activeSlide}
-            selectedInterest={selectedInterest}
+            selectedInterests={selectedInterests}
             interests={interests}
-            onSelectInterest={setSelectedInterest}
-            onGoToApp={goToMainApp}
+            onSelectInterest={toggleInterest}
+            onGoToApp={goToAuthEntry}
             onAdvanceOnboarding={() => moveOnboarding(1)}
-            onContinue={() => setScreen('auth-select')}
+            onContinue={continueFromInterests}
             onSetScreen={setScreen}
           />
         );
       case 'auth-select':
-        return (
-          <AuthFlow
-            screen={screen}
-            loginEmail={loginEmail}
-            loginPassword={loginPassword}
-            registerEmail={registerEmail}
-            registerPassword={registerPassword}
-            registerName={registerName}
-            onChangeLoginEmail={setLoginEmail}
-            onChangeLoginPassword={setLoginPassword}
-            onChangeRegisterEmail={setRegisterEmail}
-            onChangeRegisterPassword={setRegisterPassword}
-            onChangeRegisterName={setRegisterName}
-            onBackToIntro={() => setScreen('interests')}
-            onGoToLogin={() => setScreen('login')}
-            onGoToRegister={() => setScreen('register')}
-            onSubmitRegister={handleRegister}
-            onSubmitLogin={handleLogin}
-            onCompleteSuccess={goToMainApp}
-          />
-        );
+        return renderAuthFlowScreen('auth-select', 'interests');
+      case 'login-method':
+        return renderAuthFlowScreen('login-method', 'auth-select');
       case 'register':
-        return (
-          <AuthFlow
-            screen={screen}
-            loginEmail={loginEmail}
-            loginPassword={loginPassword}
-            registerEmail={registerEmail}
-            registerPassword={registerPassword}
-            registerName={registerName}
-            onChangeLoginEmail={setLoginEmail}
-            onChangeLoginPassword={setLoginPassword}
-            onChangeRegisterEmail={setRegisterEmail}
-            onChangeRegisterPassword={setRegisterPassword}
-            onChangeRegisterName={setRegisterName}
-            onBackToIntro={() => setScreen('auth-select')}
-            onGoToLogin={() => setScreen('login')}
-            onGoToRegister={() => setScreen('register')}
-            onSubmitRegister={handleRegister}
-            onSubmitLogin={handleLogin}
-            onCompleteSuccess={goToMainApp}
-          />
-        );
+        return renderAuthFlowScreen('register', 'auth-select');
       case 'login':
-        return (
-          <AuthFlow
-            screen={screen}
-            loginEmail={loginEmail}
-            loginPassword={loginPassword}
-            registerEmail={registerEmail}
-            registerPassword={registerPassword}
-            registerName={registerName}
-            onChangeLoginEmail={setLoginEmail}
-            onChangeLoginPassword={setLoginPassword}
-            onChangeRegisterEmail={setRegisterEmail}
-            onChangeRegisterPassword={setRegisterPassword}
-            onChangeRegisterName={setRegisterName}
-            onBackToIntro={() => setScreen('auth-select')}
-            onGoToLogin={() => setScreen('login')}
-            onGoToRegister={() => setScreen('register')}
-            onSubmitRegister={handleRegister}
-            onSubmitLogin={handleLogin}
-            onCompleteSuccess={goToMainApp}
-          />
-        );
+        return renderAuthFlowScreen('login', 'login-method');
       case 'auth-success':
-        return (
-          <AuthFlow
-            screen={screen}
-            loginEmail={loginEmail}
-            loginPassword={loginPassword}
-            registerEmail={registerEmail}
-            registerPassword={registerPassword}
-            registerName={registerName}
-            onChangeLoginEmail={setLoginEmail}
-            onChangeLoginPassword={setLoginPassword}
-            onChangeRegisterEmail={setRegisterEmail}
-            onChangeRegisterPassword={setRegisterPassword}
-            onChangeRegisterName={setRegisterName}
-            onBackToIntro={() => setScreen('auth-select')}
-            onGoToLogin={() => setScreen('login')}
-            onGoToRegister={() => setScreen('register')}
-            onSubmitRegister={handleRegister}
-            onSubmitLogin={handleLogin}
-            onCompleteSuccess={goToMainApp}
-          />
-        );
+        return renderAuthFlowScreen('auth-success', 'auth-select');
       case 'home':
       case 'discover':
       case 'quiz':
