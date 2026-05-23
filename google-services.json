@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "9053431038",
+    "project_id": "funfanti",
+    "storage_bucket": "funfanti.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9053431038:android:30b9b664b539cbe637b1af",
+        "android_client_info": {
+          "package_name": "com.funfanti.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwAjrvQtRNt1O6KUi4X66Kjvfhj_i8u24"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
