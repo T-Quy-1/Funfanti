@@ -5,7 +5,7 @@ const primary = '#269D54';
 const surface = '#FFFFFF';
 export const BOTTOM_NAV_HEIGHT = 76;
 export const BOTTOM_NAV_BOTTOM_OFFSET = 20;
-export const BOTTOM_NAV_CONTENT_PADDING = 168;
+export const BOTTOM_NAV_CONTENT_PADDING = 180;
 
 type BottomNavProps = {
   activeTab: 'home' | 'discover' | 'quiz' | 'profile';
@@ -37,7 +37,7 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
             >
               <Feather
                 name={item.icon}
-                size={active ? 30 : 28}
+                size={active ? 26 : 24}
                 color={active ? primary : surface}
               />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: BOTTOM_NAV_BOTTOM_OFFSET,
-    backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: BOTTOM_NAV_BOTTOM_OFFSET,
   },
   bottomNav: {
     flexDirection: 'row',

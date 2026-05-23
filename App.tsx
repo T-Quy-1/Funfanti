@@ -88,6 +88,7 @@ export default function App() {
       setQuestionSetTags(payload.questionSetTags);
       setActiveQuestionSetId(payload.questionSets[0]?.id ?? '');
       setActiveQuestionSet(payload.questionSets[0] ?? null);
+      setBookmarkedQuestionSetIds(payload.questionSets.filter(qs => qs.isBookmarked).map(qs => qs.id));
       setQuizQuestions(payload.quizQuestions);
       setStats(payload.stats);
       setRegisterName(payload.profile.displayName);
@@ -119,10 +120,14 @@ export default function App() {
         .getQuestionSets({
           ...questionSetFilters,
           search: search || undefined,
-        })
+        }, authToken)
         .then((nextQuestionSets) => {
           if (mounted) {
             setQuestionSets(nextQuestionSets);
+            setBookmarkedQuestionSetIds((current) => {
+              const newIds = nextQuestionSets.filter((qs) => qs.isBookmarked).map((qs) => qs.id);
+              return Array.from(new Set([...current, ...newIds]));
+            });
           }
         })
         .catch((error) => {
@@ -143,7 +148,7 @@ export default function App() {
       mounted = false;
       clearTimeout(timeoutId);
     };
-  }, [questionSetFilters, questionSetSearchQuery]);
+  }, [questionSetFilters, questionSetSearchQuery, authToken]);
 
   const currentQuestion = quizQuestions[quizIndex] ?? null;
 
@@ -208,9 +213,12 @@ export default function App() {
       return;
     }
 
-    const timeTakenMs = Math.max(0, Date.now() - questionStartedAtMs);
-    const nextAnswers = { ...answers, [currentQuestion.id]: choiceId };
-    const isCorrect = currentQuestion.choices.find((choice) => choice.id === choiceId)?.correct;
+    const timeTakenMs = choiceId === 'TIMEOUT' ? 15000 : Math.max(0, Date.now() - questionStartedAtMs);
+    const nextAnswers = { ...answers };
+    if (choiceId !== 'TIMEOUT') {
+      nextAnswers[currentQuestion.id] = choiceId;
+    }
+    const isCorrect = choiceId !== 'TIMEOUT' && currentQuestion.choices.find((choice) => choice.id === choiceId)?.correct;
     const nextScore = isCorrect ? score + 1 : score;
 
     setSelectedChoice(choiceId);
@@ -404,6 +412,13 @@ export default function App() {
         correctCount: result.correctCount ?? score,
         totalQuestions: result.totalQuestions ?? quizQuestions.length,
       });
+
+      // Update local state to reflect completion
+      setQuestionSets((current) =>
+        current.map((qs) =>
+          qs.id === activeQuestionSetId ? { ...qs, progress: 1 } : qs
+        )
+      );
     } finally {
       setQuizSubmissionLoading(false);
     }

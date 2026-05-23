@@ -80,17 +80,6 @@ const palette = {
 };
 
 const courseCardColors = [palette.peach, palette.mint, palette.lime, palette.aqua, palette.coral];
-const strictScrollProps = {
-  alwaysBounceVertical: false,
-  bounces: false,
-  overScrollMode: 'never' as const,
-};
-const strictHorizontalScrollProps = {
-  alwaysBounceHorizontal: false,
-  bounces: false,
-  overScrollMode: 'never' as const,
-};
-
 const quizDates = [
   { month: 'May', day: '23', weekDay: 'Fri' },
   { month: 'May', day: '24', weekDay: 'Sat' },
@@ -161,8 +150,10 @@ export function MainFlow(props: MainFlowProps) {
   const truncateText = (value: string, maxLength = 30) =>
     value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
 
-  const recommendedQuestionSets = questionSets.slice(0, 6);
-  const myQuizSets = questionSets.slice(0, 4);
+  const recommendedQuestionSets = questionSets.filter((set) =>
+    set.title.toLowerCase().includes('starter sea') || set.title.toLowerCase().includes('napoleon')
+  );
+  const myQuizSets = questionSets.filter((set) => bookmarkedQuestionSetIds.includes(set.id));
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -210,7 +201,6 @@ export function MainFlow(props: MainFlowProps) {
     <View style={styles.figmaPage}>
       {renderAppHeader('Home')}
       <ScrollView
-        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.figmaHomeContent}
       >
@@ -245,7 +235,6 @@ export function MainFlow(props: MainFlowProps) {
 
         {recommendedQuestionSets.length > 0 ? (
           <ScrollView
-            {...strictHorizontalScrollProps}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.homeCourseRail}
@@ -312,7 +301,6 @@ export function MainFlow(props: MainFlowProps) {
         ))}
       </View>
       <ScrollView
-        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.myQuizzesContent}
       >
@@ -359,11 +347,8 @@ export function MainFlow(props: MainFlowProps) {
 
   const renderProfile = () => (
     <View style={styles.figmaPage}>
-      <SafeAreaView style={styles.profileTopSafeArea}>
-        <View style={styles.profileTopStrip} />
-      </SafeAreaView>
+      {renderAppHeader('Profile')}
       <ScrollView
-        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.profileContent}
       >
@@ -484,7 +469,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   figmaHeader: {
-    minHeight: 112,
+    minHeight: 118,
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -578,7 +563,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   emptyRecentRail: {
-    width: 301,
+    width: '100%',
     marginBottom: 38,
   },
   emptyRecentText: {
@@ -594,7 +579,7 @@ const styles = StyleSheet.create({
   },
   homeCourseCard: {
     width: 301,
-    height: 143,
+    minHeight: 185,
     borderRadius: 24,
     padding: 12,
     overflow: 'hidden',
@@ -697,16 +682,9 @@ const styles = StyleSheet.create({
   myQuizList: {
     gap: 12,
   },
-  profileTopSafeArea: {
-    backgroundColor: palette.primary,
-  },
-  profileTopStrip: {
-    height: 42,
-    backgroundColor: palette.primary,
-  },
   profileContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   profileHeroCompact: {

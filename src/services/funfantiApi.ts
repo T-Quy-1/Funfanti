@@ -63,6 +63,8 @@ type RemoteQuestionSet = {
   tags?: unknown;
   questionCount?: unknown;
   sessionCount?: unknown;
+  progress?: unknown;
+  isBookmarked?: unknown;
   creator?: {
     displayName?: unknown;
   };
@@ -147,7 +149,7 @@ const mapRemoteQuestionSet = (remote: RemoteQuestionSet, index: number): Questio
     topic: normalize(remote.topic) || 'General',
     subtitle: normalize(remote.description) || 'No description provided.',
     creatorName: normalize(remote.creator?.displayName) || undefined,
-    progress: 0,
+    progress: normalizeNumber(remote.progress, 0),
     accent: '#E9FBFD',
     artTone: '#DDF7FA',
     imageUrl: mediaUrl || undefined,
@@ -157,6 +159,7 @@ const mapRemoteQuestionSet = (remote: RemoteQuestionSet, index: number): Questio
     avgRating: normalizeNumber(remote.avgRating, 0),
     sessionCount: normalizeNumber(remote.sessionCount, 0),
     isFeatured: typeof remote.isFeatured === 'boolean' ? remote.isFeatured : false,
+    isBookmarked: Boolean(remote.isBookmarked),
   };
 };
 
@@ -249,9 +252,11 @@ const buildQuestionSetQuery = (filters: QuestionSetFilters = {}) => {
   return query ? `?${query}` : '';
 };
 
-const fetchQuestionSets = async (filters: QuestionSetFilters = {}) => {
+const fetchQuestionSets = async (filters: QuestionSetFilters = {}, accessToken?: string | null) => {
   const loadRemoteQuestionSets = (nextFilters: QuestionSetFilters) =>
-    requestJson<RemoteQuestionSet[]>(`/question-sets${buildQuestionSetQuery(nextFilters)}`);
+    requestJson<RemoteQuestionSet[]>(`/question-sets${buildQuestionSetQuery(nextFilters)}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
 
   let remoteQuestionSets = await loadRemoteQuestionSets(filters);
   const searchTokens =
@@ -290,7 +295,7 @@ const mapRemoteQuestions = (
     prompt: normalize(question.text) || `Question ${questionIndex + 1}`,
     explanation: normalize(question.explanationText) || 'Nice work. Keep going.',
     artTone,
-    imageUrl: normalize(question.mediaUrl) || setMediaUrl,
+    imageUrl: normalize(question.mediaUrl) || undefined,
     imageSource: undefined,
     choices: (Array.isArray(question.choices) ? question.choices : []).map((choice, choiceIndex) => ({
       id: normalize(choice.id) || letters[choiceIndex] || `choice-${choiceIndex + 1}`,
@@ -347,8 +352,8 @@ export const funfantiApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getQuestionSets: (filters: QuestionSetFilters = {}) =>
-    withFallback([], () => fetchQuestionSets(filters)),
+  getQuestionSets: (filters: QuestionSetFilters = {}, accessToken?: string | null) =>
+    withFallback([], () => fetchQuestionSets(filters, accessToken)),
   getQuestionSetTags: () => withFallback([], fetchQuestionSetTags),
   getQuestionSetQuestions: (questionSetId: string) =>
     withFallback([], async () => {

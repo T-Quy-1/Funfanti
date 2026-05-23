@@ -469,9 +469,6 @@ export function QuestionSetsScreen({
       </View>
 
       <ScrollView
-        alwaysBounceVertical={false}
-        bounces={false}
-        overScrollMode="never"
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >

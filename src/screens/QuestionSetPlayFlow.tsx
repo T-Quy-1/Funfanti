@@ -165,30 +165,34 @@ export function QuestionSetDetailScreen({
 
   if (!questionSet) {
     return (
-      <SafeAreaView style={styles.page}>
+      <View style={styles.page}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+          <View style={styles.detailHeader}>
+            <Pressable style={styles.detailBackButton} onPress={onBack}>
+              <Feather name="chevron-left" size={24} color={playColors.white} />
+            </Pressable>
+            <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
+          </View>
+        </SafeAreaView>
+        <View style={styles.emptyDetail}>
+          <Text style={styles.emptyTitle}>Question set unavailable</Text>
+          <Text style={styles.emptyBody}>Return to Question Sets and choose another quiz.</Text>
+        </View>
+        <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.page}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary }}>
         <View style={styles.detailHeader}>
           <Pressable style={styles.detailBackButton} onPress={onBack}>
             <Feather name="chevron-left" size={24} color={playColors.white} />
           </Pressable>
           <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
         </View>
-        <View style={styles.emptyDetail}>
-          <Text style={styles.emptyTitle}>Question set unavailable</Text>
-          <Text style={styles.emptyBody}>Return to Question Sets and choose another quiz.</Text>
-        </View>
-        <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
       </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.page}>
-      <View style={styles.detailHeader}>
-        <Pressable style={styles.detailBackButton} onPress={onBack}>
-          <Feather name="chevron-left" size={24} color={playColors.white} />
-        </Pressable>
-        <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
-      </View>
 
       <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
         {imageSource ? (
@@ -234,7 +238,7 @@ export function QuestionSetDetailScreen({
         </Pressable>
       </View>
       <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -270,24 +274,33 @@ export function QuestionSetQuizScreen({
       return undefined;
     }
 
-    const timerId = setInterval(() => setNow(Date.now()), 500);
+    setNow(Date.now());
+    const timerId = setInterval(() => {
+      const currentNow = Date.now();
+      setNow(currentNow);
+      if (currentNow - questionStartedAtMs >= QUESTION_TIME_LIMIT_MS) {
+        onSelectChoice('TIMEOUT');
+      }
+    }, 500);
     return () => clearInterval(timerId);
-  }, [selectedChoice, question?.id]);
+  }, [selectedChoice, question?.id, questionStartedAtMs, onSelectChoice]);
 
   if (!question) {
     return (
-      <SafeAreaView style={styles.quizPage}>
-        <View style={styles.detailHeader}>
-          <Pressable style={styles.detailBackButton} onPress={onBack}>
-            <Feather name="chevron-left" size={24} color={playColors.white} />
-          </Pressable>
-          <Text style={styles.detailHeaderTitle}>Quiz</Text>
-        </View>
+      <View style={styles.quizPage}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+          <View style={styles.detailHeader}>
+            <Pressable style={styles.detailBackButton} onPress={onBack}>
+              <Feather name="chevron-left" size={24} color={playColors.white} />
+            </Pressable>
+            <Text style={styles.detailHeaderTitle}>Quiz</Text>
+          </View>
+        </SafeAreaView>
         <View style={styles.emptyDetail}>
           <Text style={styles.emptyTitle}>No quiz questions yet</Text>
           <Text style={styles.emptyBody}>Load a question set from the backend to begin.</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -312,14 +325,16 @@ export function QuestionSetQuizScreen({
     : `${question.explanation}`;
 
   return (
-    <SafeAreaView style={styles.quizPage}>
-      <PlayHeader
-        completedCount={completedCount}
-        onBack={onBack}
-        questionIndex={questionIndex}
-        secondsRemaining={secondsRemaining}
-        totalQuestions={totalQuestions}
-      />
+    <View style={styles.quizPage}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+        <PlayHeader
+          completedCount={completedCount}
+          onBack={onBack}
+          questionIndex={questionIndex}
+          secondsRemaining={secondsRemaining}
+          totalQuestions={totalQuestions}
+        />
+      </SafeAreaView>
 
       <ScrollView
         contentContainerStyle={[styles.quizContent, answered && styles.quizContentAnswered]}
@@ -373,7 +388,7 @@ export function QuestionSetQuizScreen({
           </Pressable>
         </View>
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -400,13 +415,15 @@ export function QuestionSetSummaryScreen({
     : "You're in the top 50% for quiz completion time.";
 
   return (
-    <SafeAreaView style={styles.summaryPage}>
-      <View style={styles.summaryHeader}>
-        <View style={styles.summaryHeaderRow}>
-          <Feather name="star" size={24} color="#D6F300" />
-          <Text style={styles.summaryHeaderTitle}>Summary</Text>
+    <View style={styles.summaryPage}>
+      <SafeAreaView style={{ backgroundColor: playColors.navy }}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.summaryHeaderRow}>
+            <Feather name="star" size={24} color="#D6F300" />
+            <Text style={styles.summaryHeaderTitle}>Summary</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <View style={styles.summaryCard}>
         <Text style={styles.summarySetTitle}>{questionSet?.title ?? 'Starter Quiz'}</Text>
@@ -437,7 +454,7 @@ export function QuestionSetSummaryScreen({
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
