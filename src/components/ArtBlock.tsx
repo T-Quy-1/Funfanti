@@ -1,17 +1,21 @@
 import { Image, StyleSheet, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import { colors } from '../theme/colors';
 
 type ArtBlockProps = {
   tone: string;
   variant: 'hero' | 'card' | 'quiz';
   imageUrl?: string;
+  imageSource?: ImageSourcePropType;
 };
 
-export function ArtBlock({ tone, variant, imageUrl }: ArtBlockProps) {
+export function ArtBlock({ tone, variant, imageUrl, imageSource }: ArtBlockProps) {
+  const resolvedSource = imageSource ?? (imageUrl ? { uri: imageUrl } : undefined);
+
   return (
     <View style={[styles.base, styles[variant], { backgroundColor: tone }]}>
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+      {resolvedSource ? (
+        <Image source={resolvedSource} style={styles.image} resizeMode="cover" />
       ) : null}
     </View>
   );

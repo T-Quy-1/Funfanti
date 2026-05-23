@@ -2,6 +2,7 @@ export { PrimaryButton } from './PrimaryButton';
 export { ArtBlock } from './ArtBlock';
 export { ScreenHeader } from './ScreenHeader';
 export { BottomNav } from './BottomNav';
+export { BOTTOM_NAV_CONTENT_PADDING } from './BottomNav';
 export { LogoBrand } from './LogoBrand';
 export { FunfantiLogo } from './FunfantiLogo';
 export { EnhancedCard } from './EnhancedCard';
