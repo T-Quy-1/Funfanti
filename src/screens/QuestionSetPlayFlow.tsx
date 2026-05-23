@@ -142,6 +142,7 @@ function ChoiceButton({
       >
         {choice.label}
       </Text>
+      <View style={{ width: 38 }} />
     </Pressable>
   );
 }
@@ -166,7 +167,7 @@ export function QuestionSetDetailScreen({
   if (!questionSet) {
     return (
       <View style={styles.page}>
-        <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
           <View style={styles.detailHeader}>
             <Pressable style={styles.detailBackButton} onPress={onBack}>
               <Feather name="chevron-left" size={24} color={playColors.white} />
@@ -185,7 +186,7 @@ export function QuestionSetDetailScreen({
 
   return (
     <View style={styles.page}>
-      <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
         <View style={styles.detailHeader}>
           <Pressable style={styles.detailBackButton} onPress={onBack}>
             <Feather name="chevron-left" size={24} color={playColors.white} />
@@ -288,7 +289,7 @@ export function QuestionSetQuizScreen({
   if (!question) {
     return (
       <View style={styles.quizPage}>
-        <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
           <View style={styles.detailHeader}>
             <Pressable style={styles.detailBackButton} onPress={onBack}>
               <Feather name="chevron-left" size={24} color={playColors.white} />
@@ -313,20 +314,25 @@ export function QuestionSetQuizScreen({
   const imageSource = resolveQuestionImage(question);
   const finalQuestion = questionIndex + 1 >= totalQuestions;
 
+  const isTimeout = selectedChoice === 'TIMEOUT';
   const feedbackTitle = selectedIsCorrect
     ? finalQuestion
       ? 'Spot On!'
       : 'Congratulations!'
-    : finalQuestion
-      ? 'Not Quite!'
-      : 'Tough Luck!';
-  const feedbackCopy = selectedIsCorrect
-    ? question.explanation
-    : `${question.explanation}`;
+    : isTimeout
+      ? "Time's up!"
+      : finalQuestion
+        ? 'Not Quite!'
+        : 'Tough Luck!';
+        
+  const correctChoiceLabel = question.choices.find(c => c.correct)?.label;
+  const feedbackCopy = isTimeout
+    ? `Correct answer: ${correctChoiceLabel}\n\n${question.explanation}`
+    : question.explanation;
 
   return (
     <View style={styles.quizPage}>
-      <SafeAreaView style={{ backgroundColor: playColors.primary }}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
         <PlayHeader
           completedCount={completedCount}
           onBack={onBack}
@@ -416,7 +422,7 @@ export function QuestionSetSummaryScreen({
 
   return (
     <View style={styles.summaryPage}>
-      <SafeAreaView style={{ backgroundColor: playColors.navy }}>
+      <SafeAreaView style={{ backgroundColor: playColors.navy, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
         <View style={styles.summaryHeader}>
           <View style={styles.summaryHeaderRow}>
             <Feather name="star" size={24} color="#D6F300" />

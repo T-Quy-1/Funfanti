@@ -277,7 +277,7 @@ export function MainFlow(props: MainFlowProps) {
       activeTab={activeTab}
       loading={questionSetActionLoadingId === activeQuestionSet?.id}
       questionSet={activeQuestionSet}
-      onBack={() => onSelectTab('quiz')}
+      onBack={onBackToHome}
       onSelectTab={onSelectTab}
       onTakeQuiz={onTakeQuestionSetQuiz}
     />
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 15,
+    marginTop: 'auto',
   },
   figmaStatusText: {
     fontSize: 14,
