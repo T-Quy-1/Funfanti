@@ -5,7 +5,7 @@ const primary = '#269D54';
 const surface = '#FFFFFF';
 export const BOTTOM_NAV_HEIGHT = 76;
 export const BOTTOM_NAV_BOTTOM_OFFSET = 20;
-export const BOTTOM_NAV_CONTENT_PADDING = 180;
+export const BOTTOM_NAV_CONTENT_PADDING = 96;
 
 type BottomNavProps = {
   activeTab: 'home' | 'discover' | 'quiz' | 'profile';
@@ -22,6 +22,7 @@ const navItems = [
 export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
   return (
     <View style={styles.container}>
+      <View style={styles.whiteBand} />
       <View style={styles.bottomNav}>
         {navItems.map((item) => {
           const active = activeTab === item.key;
@@ -57,10 +58,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: BOTTOM_NAV_BOTTOM_OFFSET,
+  },
+  whiteBand: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 0,
+    height: BOTTOM_NAV_BOTTOM_OFFSET + Math.round(BOTTOM_NAV_HEIGHT / 2),
+    backgroundColor: surface,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    zIndex: 1,
   },
   bottomNav: {
     flexDirection: 'row',
@@ -73,6 +85,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
     alignItems: 'center',
+    zIndex: 2,
   },
   navItem: {
     flex: 1,

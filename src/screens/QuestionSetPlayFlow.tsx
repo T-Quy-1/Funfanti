@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { BottomNav } from '../components';
+import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from '../components';
 import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
 import type { QuizSessionResult } from '../services/funfantiApi';
 import type { AppTab } from './screenTypes';
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
   detailContent: {
     paddingHorizontal: 18,
     paddingTop: 24,
-    paddingBottom: 190,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   detailImage: {
     width: '100%',
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 116,
+    bottom: Math.max(16, BOTTOM_NAV_CONTENT_PADDING - 20),
   },
   takeQuizButton: {
     height: 56,
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   emptyTitle: {
     color: playColors.navy,
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   quizContentAnswered: {
     paddingTop: 38,
-    paddingBottom: 390,
+    paddingBottom: 180,
   },
   questionPrompt: {
     color: playColors.navy,
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: 316,
+    minHeight: 220,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 2,
