@@ -24,6 +24,17 @@ export type AuthResponse = {
   accessToken: string;
 };
 
+export type QuizSessionResult = {
+  id?: string;
+  score: number;
+  status: string;
+  totalTimeMs: number | null;
+  correctCount: number;
+  totalQuestions: number;
+  percentile: number;
+  analyticsSummary: string;
+};
+
 type BootstrapPayload = {
   questionSets: typeof questionSets;
   questionSetTags: string[];
@@ -53,6 +64,9 @@ type RemoteQuestionSet = {
   tags?: unknown;
   questionCount?: unknown;
   sessionCount?: unknown;
+  creator?: {
+    displayName?: unknown;
+  };
 };
 
 type RemoteQuestionSetPayload = RemoteQuestionSet & {
@@ -141,6 +155,7 @@ const mapRemoteQuestionSet = (remote: RemoteQuestionSet, index: number): Questio
     title: normalize(remote.title) || fallback.title,
     topic: normalize(remote.topic) || fallback.topic,
     subtitle: normalize(remote.description) || fallback.subtitle,
+    creatorName: normalize(remote.creator?.displayName) || fallback.creatorName,
     imageUrl: mediaUrl || fallback.imageUrl,
     imageSource: mediaUrl ? undefined : fallback.imageSource,
     isFeatured:
@@ -357,9 +372,17 @@ export const funfantiApi = {
     accessToken?: string | null,
   ) =>
     withFallback(
-      { score: 3, status: 'COMPLETED' },
+      {
+        score: 0,
+        status: 'COMPLETED',
+        totalTimeMs: typeof payload.totalTimeMs === 'number' ? payload.totalTimeMs : null,
+        correctCount: 0,
+        totalQuestions: Array.isArray(payload.responses) ? payload.responses.length : 0,
+        percentile: 50,
+        analyticsSummary: 'Session completed locally while the backend was unavailable.',
+      } satisfies QuizSessionResult,
       () =>
-        requestJson<JsonRecord>(`/question-sets/${questionSetId}/sessions`, {
+        requestJson<QuizSessionResult>(`/question-sets/${questionSetId}/sessions`, {
           method: 'POST',
           body: JSON.stringify(payload),
           headers: {

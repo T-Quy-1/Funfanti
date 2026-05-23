@@ -30,7 +30,7 @@ import {
   ScreenKey,
   stats as defaultStats,
 } from './src/data/funfantiContent';
-import { funfantiApi } from './src/services/funfantiApi';
+import { funfantiApi, type QuizSessionResult } from './src/services/funfantiApi';
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenKey>('splash');
@@ -59,12 +59,21 @@ export default function App() {
   const [bookmarkedQuestionSetIds, setBookmarkedQuestionSetIds] = useState<string[]>([]);
   const [questionSetActionLoadingId, setQuestionSetActionLoadingId] = useState<string | null>(null);
   const [activeQuestionSetId, setActiveQuestionSetId] = useState(defaultQuestionSets[0]?.id ?? 'starter-quiz');
+  const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetCard | null>(
+    defaultQuestionSets[0] ?? null,
+  );
   const [quizQuestions, setQuizQuestions] = useState(defaultQuizQuestions);
   const [stats, setStats] = useState(defaultStats);
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState(0);
+  const [quizStartedAtMs, setQuizStartedAtMs] = useState(() => Date.now());
+  const [questionStartedAtMs, setQuestionStartedAtMs] = useState(() => Date.now());
+  const [questionDurations, setQuestionDurations] = useState<Record<string, number>>({});
+  const [quizSessionResult, setQuizSessionResult] = useState<QuizSessionResult | null>(null);
+  const [quizSubmissionLoading, setQuizSubmissionLoading] = useState(false);
+  const [quizTotalTimeMs, setQuizTotalTimeMs] = useState(0);
   const [themeEnabled, setThemeEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [notificationOverlay, setNotificationOverlay] = useState(false);
@@ -82,6 +91,7 @@ export default function App() {
       setQuestionSets(payload.questionSets);
       setQuestionSetTags(payload.questionSetTags);
       setActiveQuestionSetId(payload.questionSets[0]?.id ?? defaultQuestionSets[0]?.id ?? 'starter-quiz');
+      setActiveQuestionSet(payload.questionSets[0] ?? defaultQuestionSets[0] ?? null);
       setQuizQuestions(payload.quizQuestions);
       setStats(payload.stats);
       setRegisterName(payload.profile.displayName);
@@ -145,8 +155,9 @@ export default function App() {
     const answerCount = Object.keys(answers).length;
     return {
       answered: answerCount,
+      correct: score,
       total: quizQuestions.length,
-      accuracy: answerCount ? Math.round((score / answerCount) * 100) : 0,
+      accuracy: quizQuestions.length ? Math.round((score / quizQuestions.length) * 100) : 0,
     };
   }, [answers, score]);
 
@@ -193,46 +204,75 @@ export default function App() {
   };
 
   const submitChoice = (choiceId: string) => {
+    if (selectedChoice) {
+      return;
+    }
+
+    const timeTakenMs = Math.max(0, Date.now() - questionStartedAtMs);
     const nextAnswers = { ...answers, [currentQuestion.id]: choiceId };
     const isCorrect = currentQuestion.choices.find((choice) => choice.id === choiceId)?.correct;
     const nextScore = isCorrect ? score + 1 : score;
 
     setSelectedChoice(choiceId);
     setAnswers(nextAnswers);
+    setQuestionDurations((current) => ({
+      ...current,
+      [currentQuestion.id]: timeTakenMs,
+    }));
 
     if (isCorrect) {
       setScore(nextScore);
     }
+  };
 
+  const advanceQuiz = () => {
     const nextIndex = quizIndex + 1;
     if (nextIndex >= quizQuestions.length) {
-      submitQuizSession(nextAnswers);
-      setScreen('result');
       return;
     }
 
-    setTimeout(() => {
-      setQuizIndex(nextIndex);
-      setSelectedChoice(null);
-      setScreen('quiz');
-    }, 350);
-  };
-
-  const startQuiz = () => {
-    setQuizIndex(0);
-    setAnswers({});
-    setScore(0);
+    setQuizIndex(nextIndex);
     setSelectedChoice(null);
+    setQuestionStartedAtMs(Date.now());
     setScreen('quiz');
     setActiveTab('quiz');
   };
 
-  const startQuestionSet = async (questionSet: QuestionSetCard) => {
+  const startQuiz = () => {
+    const now = Date.now();
+    setQuizIndex(0);
+    setAnswers({});
+    setScore(0);
+    setSelectedChoice(null);
+    setQuestionDurations({});
+    setQuizSessionResult(null);
+    setQuizStartedAtMs(now);
+    setQuestionStartedAtMs(now);
+    setQuizTotalTimeMs(0);
+    setScreen('quiz');
+    setActiveTab('quiz');
+  };
+
+  const startQuestionSet = (questionSet: QuestionSetCard) => {
     setActiveQuestionSetId(questionSet.id);
-    setQuestionSetActionLoadingId(questionSet.id);
+    setActiveQuestionSet(questionSet);
+    setScreen('question-detail');
+    setActiveTab('quiz');
+  };
+
+  const beginActiveQuestionSetQuiz = async () => {
+    const nextQuestionSet = activeQuestionSet ?? questionSets[0] ?? defaultQuestionSets[0];
+
+    if (!nextQuestionSet) {
+      return;
+    }
+
+    setActiveQuestionSetId(nextQuestionSet.id);
+    setActiveQuestionSet(nextQuestionSet);
+    setQuestionSetActionLoadingId(nextQuestionSet.id);
 
     try {
-      const nextQuestions = await funfantiApi.getQuestionSetQuestions(questionSet.id);
+      const nextQuestions = await funfantiApi.getQuestionSetQuestions(nextQuestionSet.id);
       setQuizQuestions(nextQuestions.length > 0 ? nextQuestions : defaultQuizQuestions);
     } finally {
       setQuestionSetActionLoadingId(null);
@@ -339,19 +379,39 @@ export default function App() {
     );
   };
 
-  const submitQuizSession = (finalAnswers: Record<string, string> = answers) => {
-    void funfantiApi.submitQuizSession(
-      activeQuestionSetId,
-      {
-        totalTimeMs: quizQuestions.length * 12000,
-        responses: quizQuestions.map((question) => ({
-          questionId: question.id,
-          selectedAnswerId: finalAnswers[question.id] ?? undefined,
-          timeTakenMs: 12000,
-        })),
-      },
-      authToken,
-    );
+  const submitQuizSession = async (finalAnswers: Record<string, string> = answers) => {
+    const totalTimeMs = Math.max(1000, Date.now() - quizStartedAtMs);
+    const responses = quizQuestions.map((question) => ({
+      questionId: question.id,
+      selectedAnswerId: finalAnswers[question.id] ?? undefined,
+      timeTakenMs: questionDurations[question.id] ?? 0,
+    }));
+
+    setQuizSubmissionLoading(true);
+    setQuizTotalTimeMs(totalTimeMs);
+
+    try {
+      const result = await funfantiApi.submitQuizSession(
+        activeQuestionSetId,
+        {
+          totalTimeMs,
+          responses,
+        },
+        authToken,
+      );
+      setQuizSessionResult({
+        ...result,
+        correctCount: result.correctCount ?? score,
+        totalQuestions: result.totalQuestions ?? quizQuestions.length,
+      });
+    } finally {
+      setQuizSubmissionLoading(false);
+    }
+  };
+
+  const seeQuizSummary = async () => {
+    await submitQuizSession(answers);
+    setScreen('result');
   };
 
   const renderBottomNav = () => (
@@ -979,7 +1039,9 @@ export default function App() {
       case 'auth-success':
         return renderAuthFlowScreen('auth-success', 'auth-select');
       case 'home':
+      case 'my-quizzes':
       case 'discover':
+      case 'question-detail':
       case 'quiz':
       case 'result':
       case 'profile':
@@ -987,10 +1049,11 @@ export default function App() {
           <MainFlow
             screen={screen}
             registerName={registerName}
+            registerEmail={registerEmail}
             activeTab={activeTab}
             onSelectTab={(tab) => {
               setActiveTab(tab);
-              setScreen(tab);
+              setScreen(tab === 'quiz' ? 'my-quizzes' : tab);
             }}
             onOpenDiscover={() => {
               setActiveTab('discover');
@@ -1001,6 +1064,7 @@ export default function App() {
               setScreen('home');
               setActiveTab('home');
             }}
+            activeQuestionSet={activeQuestionSet}
             questionSets={questionSets}
             questionSetTags={questionSetTags}
             questionSetsLoading={questionSetsLoading}
@@ -1016,11 +1080,19 @@ export default function App() {
             selectedChoice={selectedChoice}
             scoreSummary={scoreSummary}
             currentQuestion={currentQuestion}
+            questionStartedAtMs={questionStartedAtMs}
+            questionDurations={questionDurations}
+            quizTotalTimeMs={quizTotalTimeMs}
+            quizSessionResult={quizSessionResult}
+            quizSubmissionLoading={quizSubmissionLoading}
             selectedInterest={selectedInterest}
             themeEnabled={themeEnabled}
             hapticsEnabled={hapticsEnabled}
             notificationOverlay={notificationOverlay}
             onSelectChoice={submitChoice}
+            onAdvanceQuiz={advanceQuiz}
+            onSeeQuizSummary={seeQuizSummary}
+            onTakeQuestionSetQuiz={beginActiveQuestionSetQuiz}
             onChangeQuestionSetSearch={setQuestionSetSearchQuery}
             onApplyQuestionSetFilters={applyQuestionSetFilters}
             onStartQuestionSet={startQuestionSet}
@@ -1061,10 +1133,11 @@ export default function App() {
           <MainFlow
             screen="home"
             registerName={registerName}
+            registerEmail={registerEmail}
             activeTab={activeTab}
             onSelectTab={(tab) => {
               setActiveTab(tab);
-              setScreen(tab);
+              setScreen(tab === 'quiz' ? 'my-quizzes' : tab);
             }}
             onOpenDiscover={() => {
               setActiveTab('discover');
@@ -1075,6 +1148,7 @@ export default function App() {
               setScreen('home');
               setActiveTab('home');
             }}
+            activeQuestionSet={activeQuestionSet}
             questionSets={questionSets}
             questionSetTags={questionSetTags}
             questionSetsLoading={questionSetsLoading}
@@ -1090,11 +1164,19 @@ export default function App() {
             selectedChoice={selectedChoice}
             scoreSummary={scoreSummary}
             currentQuestion={currentQuestion}
+            questionStartedAtMs={questionStartedAtMs}
+            questionDurations={questionDurations}
+            quizTotalTimeMs={quizTotalTimeMs}
+            quizSessionResult={quizSessionResult}
+            quizSubmissionLoading={quizSubmissionLoading}
             selectedInterest={selectedInterest}
             themeEnabled={themeEnabled}
             hapticsEnabled={hapticsEnabled}
             notificationOverlay={notificationOverlay}
             onSelectChoice={submitChoice}
+            onAdvanceQuiz={advanceQuiz}
+            onSeeQuizSummary={seeQuizSummary}
+            onTakeQuestionSetQuiz={beginActiveQuestionSetQuiz}
             onChangeQuestionSetSearch={setQuestionSetSearchQuery}
             onApplyQuestionSetFilters={applyQuestionSetFilters}
             onStartQuestionSet={startQuestionSet}

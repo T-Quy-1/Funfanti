@@ -1,20 +1,28 @@
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { ArtBlock, BottomNav, ScreenHeader, LogoBrand, EnhancedCard, StatCard } from "../components";
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { BottomNav } from "../components";
 import { Feather } from '@expo/vector-icons';
 import { colors } from "../theme/colors";
 import { spacing, borderRadius, shadows, gradients } from "../theme/spacing";
 import type { AppTab } from "./screenTypes";
 import { QuestionSetsScreen } from './QuestionSetsScreen';
+import {
+  QuestionSetDetailScreen,
+  QuestionSetQuizScreen,
+  QuestionSetSummaryScreen,
+} from './QuestionSetPlayFlow';
 import type { QuestionSetCard, QuestionSetFilters, QuizQuestion } from "../data/funfantiContent";
+import type { QuizSessionResult } from "../services/funfantiApi";
 
 type MainFlowProps = {
-  screen: "home" | "discover" | "quiz" | "result" | "profile";
+  screen: "home" | "my-quizzes" | "discover" | "question-detail" | "quiz" | "result" | "profile";
   registerName: string;
+  registerEmail: string;
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
   onOpenDiscover: () => void;
   onStartQuiz: () => void;
   onBackToHome: () => void;
+  activeQuestionSet: QuestionSetCard | null;
   questionSets: QuestionSetCard[];
   questionSetTags: string[];
   questionSetsLoading: boolean;
@@ -28,13 +36,21 @@ type MainFlowProps = {
   stats: ReadonlyArray<{ label: string; value: string }>;
   quizIndex: number;
   selectedChoice: string | null;
-  scoreSummary: { answered: number; total: number; accuracy: number };
+  scoreSummary: { answered: number; correct: number; total: number; accuracy: number };
   currentQuestion: QuizQuestion;
+  questionStartedAtMs: number;
+  questionDurations: Record<string, number>;
+  quizTotalTimeMs: number;
+  quizSessionResult: QuizSessionResult | null;
+  quizSubmissionLoading: boolean;
   selectedInterest: string;
   themeEnabled: boolean;
   hapticsEnabled: boolean;
   notificationOverlay: boolean;
   onSelectChoice: (choiceId: string) => void;
+  onAdvanceQuiz: () => void;
+  onSeeQuizSummary: () => void;
+  onTakeQuestionSetQuiz: () => void;
   onChangeQuestionSetSearch: (value: string) => void;
   onApplyQuestionSetFilters: (filters: QuestionSetFilters) => void;
   onStartQuestionSet: (questionSet: QuestionSetCard) => void;
@@ -46,15 +62,44 @@ type MainFlowProps = {
   onUpdateNotificationOverlay: (value: boolean) => void;
 };
 
+const palette = {
+  primary: '#269D54',
+  navy: '#081245',
+  black: '#161616',
+  ink: '#24252C',
+  white: '#FFFFFF',
+  peach: '#FED19C',
+  mint: '#D3F1D9',
+  lime: '#EEF4C2',
+  aqua: 'rgba(43,217,222,0.5)',
+  coral: '#FF8080',
+  softGreen: 'rgba(56,222,144,0.5)',
+  page: '#FFFFFF',
+  muted: '#5F6672',
+  line: '#E8EDF0',
+};
+
+const courseCardColors = [palette.peach, palette.mint, palette.lime, palette.aqua, palette.coral];
+
+const quizDates = [
+  { month: 'May', day: '23', weekDay: 'Fri' },
+  { month: 'May', day: '24', weekDay: 'Sat' },
+  { month: 'May', day: '25', weekDay: 'Sun', active: true },
+  { month: 'May', day: '26', weekDay: 'Mon' },
+  { month: 'May', day: '27', weekDay: 'Tue' },
+];
+
 export function MainFlow(props: MainFlowProps) {
   const {
     screen,
     registerName,
+    registerEmail,
     activeTab,
     onSelectTab,
     onOpenDiscover,
     onStartQuiz,
     onBackToHome,
+    activeQuestionSet,
     questionSets,
     questionSetTags,
     questionSetsLoading,
@@ -70,11 +115,19 @@ export function MainFlow(props: MainFlowProps) {
     selectedChoice,
     scoreSummary,
     currentQuestion,
+    questionStartedAtMs,
+    questionDurations,
+    quizTotalTimeMs,
+    quizSessionResult,
+    quizSubmissionLoading,
     selectedInterest,
     themeEnabled,
     hapticsEnabled,
     notificationOverlay,
     onSelectChoice,
+    onAdvanceQuiz,
+    onSeeQuizSummary,
+    onTakeQuestionSetQuiz,
     onChangeQuestionSetSearch,
     onApplyQuestionSetFilters,
     onStartQuestionSet,
@@ -86,152 +139,108 @@ export function MainFlow(props: MainFlowProps) {
     onUpdateNotificationOverlay,
   } = props;
 
+  const displayName = registerName.trim() || 'Funfanti Learner';
+  const displayEmail = registerEmail.trim() || 'learner@funfanti.app';
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   const truncateText = (value: string, maxLength = 30) =>
     value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
 
-  const featuredQuestionSet = questionSets[0];
+  const recommendedQuestionSets = questionSets.slice(0, 6);
+  const myQuizSets = questionSets.slice(0, 4);
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
+  const renderAppHeader = (title: string) => (
+    <View style={styles.figmaHeader}>
+      <Text style={styles.figmaHeaderTitle}>{title}</Text>
+    </View>
+  );
+
+  const renderCourseCard = (
+    questionSet: QuestionSetCard,
+    index: number,
+    variant: 'horizontal' | 'full',
+  ) => {
+    const cardColor = courseCardColors[index % courseCardColors.length];
+    const status = questionSet.progress >= 1 ? 'Completed' : 'Incomplete';
+    const widthStyle = variant === 'horizontal' ? styles.homeCourseCard : styles.quizCourseCard;
+
+    return (
+      <Pressable
+        key={questionSet.id}
+        style={[widthStyle, { backgroundColor: cardColor }]}
+        onPress={() => onStartQuestionSet(questionSet)}
+      >
+        <Text style={styles.figmaCourseTitle}>{truncateText(questionSet.title, 28)}</Text>
+        <Text style={styles.figmaCourseAuthor}>
+          {truncateText(questionSet.creatorName ?? questionSet.topic, 30)}
+        </Text>
+        <View style={styles.figmaQuestionMeta}>
+          <Feather name="book-open" size={15} color={palette.black} />
+          <Text style={styles.figmaQuestionCount}>
+            {questionSet.questionCount} {questionSet.questionCount === 1 ? 'Question' : 'Questions'}
+          </Text>
+        </View>
+        <View style={styles.figmaStatusPill}>
+          <Text style={[styles.figmaStatusText, { color: cardColor }]}>{status}</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
   const renderHome = () => (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.appContent}>
-        <ScreenHeader title="Home" subtitle={`Good evening, ${registerName.split(" ")[0]}.`} />
-        <View style={styles.bannerCard}>
-          <View style={styles.bannerCopy}>
-            <Text style={styles.bannerEyebrow}>Daily learning</Text>
-            <Text style={styles.bannerTitle}>Short sessions, better retention.</Text>
-            <Text style={styles.bannerText}>
-              A clean quiz loop that feels light, visual, and fast to finish.
-            </Text>
+    <SafeAreaView style={styles.figmaPage}>
+      {renderAppHeader('Home')}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.figmaHomeContent}
+      >
+        <View style={styles.figmaGreetingRow}>
+          <View style={styles.figmaSmallAvatar}>
+            <Text style={styles.figmaSmallAvatarText}>{initials}</Text>
           </View>
-          <View style={styles.bannerArtWrap}>
-            <ArtBlock tone={colors.brandGreenSoft} variant="hero" />
+          <View style={styles.figmaGreetingText}>
+            <Text style={styles.figmaHello}>Hello!</Text>
+            <Text style={styles.figmaName}>{displayName}</Text>
           </View>
+          <Feather name="bell" size={24} color={palette.black} />
         </View>
 
-        <View style={styles.profileMiniRow}>
-          <View>
-            <Text style={styles.subtleLabel}>Active streak</Text>
-            <Text style={styles.bigValue}>12 days</Text>
-          </View>
-          <View style={styles.avatarBubble}>
-            <Text style={styles.avatarBubbleText}>JD</Text>
-          </View>
+        <View style={styles.figmaSectionHeader}>
+          <Text style={styles.figmaSectionTitle}>Recent Courses</Text>
+        </View>
+        <View style={styles.emptyRecentState}>
+          <Feather name="book-open" size={22} color={palette.primary} />
+          <Text style={styles.emptyRecentText}>No recent courses available</Text>
         </View>
 
-        <View style={styles.statsRow}>
-          <StatCard
-            title="Questions today"
-            value={stats[0]?.value || '18'}
-            iconName="help-circle"
-            backgroundColor={colors.surface}
-            accentColor={colors.brand}
-            textColor="#111827"
-          />
-          <StatCard
-            title="Streak"
-            value={stats[1]?.value || '12'}
-            unit="days"
-            iconName="zap"
-            backgroundColor={colors.surface}
-            accentColor={colors.brand}
-            textColor="#111827"
-            trend="up"
-            trendValue="+3 this week"
-          />
-          <StatCard
-            title="Saved sets"
-            value={stats[2]?.value || '24'}
-            iconName="bookmark"
-            backgroundColor={colors.surface}
-            accentColor={colors.brand}
-            textColor="#111827"
-          />
-        </View>
-
-        <View style={styles.listSectionHeader}>
-          <Text style={styles.listSectionTitle}>Featured quiz</Text>
-          <Pressable onPress={onOpenDiscover}>
-            <Text style={styles.listSectionAction}>See all</Text>
+        <View style={styles.figmaSectionHeader}>
+          <Text style={styles.figmaSectionTitle}>Recommended Courses</Text>
+          <Pressable style={styles.figmaSeeMore} onPress={onOpenDiscover}>
+            <Text style={styles.figmaSeeMoreText}>See more</Text>
+            <Feather name="chevron-right" size={22} color={palette.black} />
           </Pressable>
         </View>
 
-        {featuredQuestionSet ? (
-          <Pressable style={styles.featuredCard} onPress={() => onStartQuestionSet(featuredQuestionSet)}>
-            <ArtBlock
-              tone={colors.brandGreenSoft}
-              variant="hero"
-              imageUrl={featuredQuestionSet.imageUrl}
-              imageSource={featuredQuestionSet.imageSource}
-            />
-            <View style={styles.featuredContent}>
-              <Text style={styles.featuredTag}>Starter Quiz</Text>
-              <Text style={styles.featuredTitle}>{truncateText(featuredQuestionSet.title, 30)}</Text>
-              <Text style={styles.featuredText}>{truncateText(featuredQuestionSet.subtitle, 54)}</Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${featuredQuestionSet.progress * 100}%` as `${number}%` }]} />
-              </View>
-            </View>
-          </Pressable>
+        {recommendedQuestionSets.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.homeCourseRail}
+          >
+            {recommendedQuestionSets.map((set, index) => renderCourseCard(set, index, 'horizontal'))}
+          </ScrollView>
         ) : (
-          <View style={styles.featuredCard}>
-            <View style={styles.featuredContent}>
-              <Text style={styles.featuredTitle}>No featured sets yet</Text>
-              <Text style={styles.featuredText}>Try clearing your current search or filters.</Text>
-            </View>
+          <View style={styles.emptyRecentState}>
+            <Text style={styles.emptyRecentText}>No recommended courses available</Text>
           </View>
         )}
-
-        <View style={styles.listSectionHeader}>
-          <Text style={styles.listSectionTitle}>Recommended courses</Text>
-          <Pressable onPress={onOpenDiscover}>
-            <Text style={styles.listSectionAction}>Explore</Text>
-          </Pressable>
-        </View>
-
-        {questionSets.map((set, index) => {
-          // Cycle through accent colors for visual variety
-          const accentColors = [
-            colors.tealSoft,
-            colors.orangeSoft,
-            colors.purpleSoft,
-            colors.blueSoft,
-          ];
-          const accentTextColors = [
-            colors.tealDark,
-            colors.orangeDark,
-            colors.purpleDark,
-            colors.blueDark,
-          ];
-          const accentAccent = [
-            colors.teal,
-            colors.orange,
-            colors.purple,
-            colors.blue,
-          ];
-          const bgColor = accentColors[index % accentColors.length];
-          const textColor = accentTextColors[index % accentTextColors.length];
-          const accentColor = accentAccent[index % accentAccent.length];
-
-          return (
-            <Pressable
-              key={set.id}
-              style={[styles.courseCard, { backgroundColor: bgColor }]}
-              onPress={() => onStartQuestionSet(set)}
-            >
-              <ArtBlock tone={set.artTone} variant="card" imageUrl={set.imageUrl} imageSource={set.imageSource} />
-              <View style={styles.courseBody}>
-                <Text style={[styles.courseTopic, { color: textColor }]}>{truncateText(set.topic, 24)}</Text>
-                <Text style={styles.courseTitle}>{truncateText(set.title, 30)}</Text>
-                <Text style={styles.courseSubtitle}>{truncateText(set.subtitle, 54)}</Text>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { backgroundColor: accentColor, width: `${set.progress * 100}%` as `${number}%` }]} />
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
       </ScrollView>
       {renderBottomNav()}
     </SafeAreaView>
@@ -256,150 +265,152 @@ export function MainFlow(props: MainFlowProps) {
     />
   );
 
-  const renderQuiz = () => (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.quizContainer}>
-        <View style={styles.quizTopRow}>
-          <Pressable style={styles.backLink} onPress={onBackToHome}>
-            <Feather name="arrow-left" size={16} color={colors.textMuted} />
-            <Text style={styles.backLabel}>Back</Text>
-          </Pressable>
-          <Text style={styles.quizMeta}>{truncateText(currentQuestion.topic, 24)}</Text>
-          <Text style={styles.quizCounter}>
-            {quizIndex + 1} of {quizQuestions.length}
-          </Text>
+  const renderQuestionDetail = () => (
+    <QuestionSetDetailScreen
+      activeTab={activeTab}
+      loading={questionSetActionLoadingId === activeQuestionSet?.id}
+      questionSet={activeQuestionSet}
+      onBack={() => onSelectTab('quiz')}
+      onSelectTab={onSelectTab}
+      onTakeQuiz={onTakeQuestionSetQuiz}
+    />
+  );
+
+  const renderMyQuizzes = () => (
+    <SafeAreaView style={styles.figmaPage}>
+      {renderAppHeader('My Quizzes')}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.myQuizzesContent}
+      >
+        <View style={styles.dateStrip}>
+          {quizDates.map((date) => (
+            <View
+              key={`${date.month}-${date.day}`}
+              style={[styles.dateCard, date.active && styles.dateCardActive]}
+            >
+              <Text style={[styles.dateMonth, date.active && styles.dateTextActive]}>{date.month}</Text>
+              <Text style={[styles.dateDay, date.active && styles.dateTextActive]}>{date.day}</Text>
+              <Text style={[styles.dateWeekDay, date.active && styles.dateTextActive]}>
+                {date.weekDay}
+              </Text>
+            </View>
+          ))}
         </View>
 
-        <View style={styles.quizCard}>
-          <ArtBlock
-            tone={currentQuestion.artTone}
-            variant="quiz"
-            imageUrl={currentQuestion.imageUrl}
-            imageSource={currentQuestion.imageSource}
-          />
-          <Text style={styles.quizQuestion}>{truncateText(currentQuestion.prompt, 80)}</Text>
-
-          <View style={styles.choiceStack}>
-            {currentQuestion.choices.map((choice) => {
-              const active = selectedChoice === choice.id;
-              return (
-                <Pressable
-                  key={choice.id}
-                  style={[
-                    styles.choiceButton,
-                    active && (choice.correct ? styles.choiceCorrect : styles.choiceWrong),
-                  ]}
-                  onPress={() => onSelectChoice(choice.id)}
-                >
-                  <Text style={styles.choiceLetter}>{(choice.letter ?? choice.id).toUpperCase()}</Text>
-                  <Text style={styles.choiceText}>{choice.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.quizHint}>
-            <Text style={styles.quizHintTitle}>Fast feedback</Text>
-            <Text style={styles.quizHintText}>{truncateText(currentQuestion.explanation, 120)}</Text>
-          </View>
+        <View style={styles.myQuizList}>
+          {myQuizSets.length > 0 ? (
+            myQuizSets.map((set, index) => renderCourseCard(set, index + 1, 'full'))
+          ) : (
+            <View style={styles.emptyRecentState}>
+              <Text style={styles.emptyRecentText}>No quizzes available</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
+      {renderBottomNav()}
     </SafeAreaView>
   );
 
-  const renderResult = () => {
-    const percent = Math.round((scoreSummary.answered / scoreSummary.total) * 100);
-    const compare = percent >= 80 ? "Top 10%" : percent >= 60 ? "Top 30%" : "Top 50%";
+  const renderQuiz = () => (
+    <QuestionSetQuizScreen
+      question={currentQuestion}
+      questionIndex={quizIndex}
+      questionStartedAtMs={questionStartedAtMs}
+      questionDurationMs={questionDurations[currentQuestion.id]}
+      selectedChoice={selectedChoice}
+      totalQuestions={quizQuestions.length}
+      submitting={quizSubmissionLoading}
+      onAdvance={onAdvanceQuiz}
+      onBack={() => onSelectTab('quiz')}
+      onSeeSummary={onSeeQuizSummary}
+      onSelectChoice={onSelectChoice}
+    />
+  );
 
-    return (
-      <SafeAreaView style={styles.page}>
-        <ScrollView contentContainerStyle={styles.resultContainer}>
-          <View style={styles.resultHeader}>
-            <Text style={styles.resultTitle}>Summary</Text>
-            <Text style={styles.resultTopic}>Starter Quiz</Text>
-          </View>
-          <View style={styles.resultRing}>
-            <Text style={styles.resultPercent}>{percent}%</Text>
-            <Text style={styles.resultLabel}>Correct answers</Text>
-          </View>
-          <View style={styles.resultGrid}>
-            <View style={styles.resultMetricCard}>
-              <Text style={styles.resultMetricValue}>{scoreSummary.answered}</Text>
-              <Text style={styles.resultMetricLabel}>Answered</Text>
-            </View>
-            <View style={styles.resultMetricCard}>
-              <Text style={styles.resultMetricValue}>{compare}</Text>
-              <Text style={styles.resultMetricLabel}>Compared to peers</Text>
-            </View>
-          </View>
-          <View style={styles.feedbackCard}>
-            <Text style={styles.feedbackTitle}>
-              {percent >= 80 ? "Outstanding" : percent >= 60 ? "Nice work" : "Keep going"}
-            </Text>
-            <Text style={styles.feedbackText}>
-              Funfanti surfaces the next best set based on your performance so your next session
-              stays short and useful.
-            </Text>
-          </View>
-          <View style={styles.resultActions}>
-            <Pressable style={styles.secondaryButton} onPress={onRetryQuiz}>
-              <Text style={styles.secondaryButtonText}>Retry</Text>
-            </Pressable>
-            <Pressable style={styles.primaryButton} onPress={onContinueHome}>
-              <Text style={styles.primaryButtonText}>Continue</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-        {renderBottomNav()}
-      </SafeAreaView>
-    );
-  };
+  const renderResult = () => (
+    <QuestionSetSummaryScreen
+      questionSet={activeQuestionSet}
+      quizSessionResult={quizSessionResult}
+      scoreSummary={scoreSummary}
+      totalTimeMs={quizTotalTimeMs}
+      onContinue={onContinueHome}
+      onRetry={onRetryQuiz}
+    />
+  );
 
   const renderProfile = () => (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.appContent}>
-        <ScreenHeader title="Profile" subtitle="Your settings and progress in one place." />
-        <View style={styles.profileHero}>
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>JD</Text>
+    <SafeAreaView style={styles.figmaPage}>
+      <View style={styles.profileTopStrip} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.profileContent}
+      >
+        <View style={styles.profileHeroCompact}>
+          <View style={styles.figmaProfileAvatar}>
+            <Feather name="user" size={36} color={palette.black} />
           </View>
-          <View style={styles.profileHeroText}>
-            <Text style={styles.profileName}>John Doe</Text>
-            <Text style={styles.profileEmail}>john.doe@gmail.com</Text>
+          <Text style={styles.figmaProfileName}>{displayName}</Text>
+          <Text style={styles.figmaProfileEmail}>{displayEmail}</Text>
+        </View>
+
+        <View style={styles.figmaMenuSection}>
+          <Text style={styles.figmaMenuHeading}>My profile</Text>
+          <View style={styles.figmaMenuStack}>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Edit profile</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Avatar upload</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Bookmarks</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Activity history</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
           </View>
         </View>
 
-        <View style={styles.settingsCard}>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Theme</Text>
-              <Text style={styles.settingSubtitle}>Match your device appearance</Text>
+        <View style={styles.figmaMenuSection}>
+          <Text style={styles.figmaMenuHeading}>Settings</Text>
+          <View style={styles.figmaMenuStack}>
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Notification/Overlay</Text>
+              <Switch
+                value={notificationOverlay}
+                onValueChange={onUpdateNotificationOverlay}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={notificationOverlay ? palette.primary : palette.white}
+              />
             </View>
-            <Switch value={themeEnabled} onValueChange={onUpdateTheme} />
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Haptics & Sound</Text>
+              <Switch
+                value={hapticsEnabled}
+                onValueChange={onUpdateHaptics}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={hapticsEnabled ? palette.primary : palette.white}
+              />
+            </View>
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Theme</Text>
+              <Switch
+                value={themeEnabled}
+                onValueChange={onUpdateTheme}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={themeEnabled ? palette.primary : palette.white}
+              />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Notification schedules</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
           </View>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Haptics</Text>
-              <Text style={styles.settingSubtitle}>Light feedback on quiz answers</Text>
-            </View>
-            <Switch value={hapticsEnabled} onValueChange={onUpdateHaptics} />
-          </View>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Notification overlay</Text>
-              <Text style={styles.settingSubtitle}>Show lock-screen reminders</Text>
-            </View>
-            <Switch value={notificationOverlay} onValueChange={onUpdateNotificationOverlay} />
-          </View>
-        </View>
-
-        <View style={styles.statsGrid}>
-          {stats.map((item) => (
-            <View key={item.label} style={styles.profileStatCard}>
-              <Text style={styles.profileStatValue}>{item.value}</Text>
-              <Text style={styles.profileStatLabel}>{item.label}</Text>
-            </View>
-          ))}
         </View>
       </ScrollView>
       {renderBottomNav()}
@@ -410,13 +421,25 @@ export function MainFlow(props: MainFlowProps) {
     return renderResult();
   }
 
+  if (screen === "question-detail") {
+    return renderQuestionDetail();
+  }
+
+  if (screen === "quiz") {
+    return renderQuiz();
+  }
+
+  if (screen === "my-quizzes") {
+    return renderMyQuizzes();
+  }
+
   switch (activeTab) {
     case "home":
       return renderHome();
     case "discover":
       return renderDiscover();
     case "quiz":
-      return renderQuiz();
+      return renderMyQuizzes();
     case "profile":
       return renderProfile();
     default:
@@ -428,6 +451,294 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  figmaPage: {
+    flex: 1,
+    backgroundColor: palette.page,
+  },
+  figmaHeader: {
+    height: 158,
+    backgroundColor: palette.primary,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  figmaHeaderTitle: {
+    color: palette.white,
+    fontSize: 24,
+    lineHeight: 36,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  figmaHomeContent: {
+    paddingHorizontal: 19,
+    paddingTop: 48,
+    paddingBottom: 124,
+  },
+  figmaGreetingRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 42,
+  },
+  figmaSmallAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  figmaSmallAvatarText: {
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  figmaGreetingText: {
+    flex: 1,
+  },
+  figmaHello: {
+    color: palette.ink,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '400',
+  },
+  figmaName: {
+    color: palette.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  figmaSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  figmaSectionTitle: {
+    color: palette.black,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: '600',
+  },
+  figmaSeeMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 28,
+  },
+  figmaSeeMoreText: {
+    color: palette.black,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  emptyRecentState: {
+    minHeight: 104,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: palette.line,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginBottom: 42,
+  },
+  emptyRecentText: {
+    color: palette.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  homeCourseRail: {
+    gap: 12,
+    paddingRight: 28,
+  },
+  homeCourseCard: {
+    width: 301,
+    height: 143,
+    borderRadius: 24,
+    padding: 12,
+    overflow: 'hidden',
+  },
+  quizCourseCard: {
+    width: '100%',
+    minHeight: 143,
+    borderRadius: 24,
+    padding: 12,
+    overflow: 'hidden',
+  },
+  figmaCourseTitle: {
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  figmaCourseAuthor: {
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+  },
+  figmaQuestionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 24,
+  },
+  figmaQuestionCount: {
+    color: palette.black,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+  figmaStatusPill: {
+    alignSelf: 'flex-start',
+    height: 28,
+    borderRadius: 360,
+    backgroundColor: palette.black,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 15,
+  },
+  figmaStatusText: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+  myQuizzesContent: {
+    paddingHorizontal: 16,
+    paddingTop: 29,
+    paddingBottom: 124,
+  },
+  dateStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  dateCard: {
+    width: 64,
+    height: 84,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: palette.navy,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    backgroundColor: palette.white,
+  },
+  dateCardActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  dateMonth: {
+    color: palette.ink,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '400',
+  },
+  dateDay: {
+    color: palette.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  dateWeekDay: {
+    color: palette.ink,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '400',
+  },
+  dateTextActive: {
+    color: palette.white,
+  },
+  myQuizList: {
+    gap: 12,
+  },
+  profileTopStrip: {
+    height: 52,
+    backgroundColor: palette.primary,
+  },
+  profileContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 124,
+  },
+  profileHeroCompact: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  figmaProfileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: palette.lime,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 11,
+  },
+  figmaProfileName: {
+    color: palette.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  figmaProfileEmail: {
+    color: palette.navy,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  figmaMenuSection: {
+    marginBottom: 26,
+  },
+  figmaMenuHeading: {
+    color: palette.navy,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  figmaMenuStack: {
+    gap: 12,
+  },
+  figmaMenuRow: {
+    minHeight: 48,
+    borderRadius: 360,
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  figmaToggleRow: {
+    minHeight: 48,
+    borderRadius: 360,
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+    paddingLeft: 20,
+    paddingRight: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  figmaMenuText: {
+    flexShrink: 1,
+    color: palette.navy,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
   },
   appContent: {
     paddingHorizontal: spacing.lg,

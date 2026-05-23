@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
+
+const primary = '#269D54';
+const surface = '#FFFFFF';
 
 type BottomNavProps = {
   activeTab: 'home' | 'discover' | 'quiz' | 'profile';
@@ -33,8 +34,8 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
             >
               <Feather
                 name={item.icon}
-                size={active ? 27 : 24}
-                color={active ? colors.brand : colors.surface}
+                size={24}
+                color={active ? primary : surface}
               />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                 {item.label}
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 16,
+    bottom: 22,
     backgroundColor: 'transparent',
     paddingHorizontal: 24,
     paddingTop: 0,
@@ -60,11 +61,11 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: colors.brand,
+    backgroundColor: primary,
     borderTopWidth: 0,
     borderRadius: 360,
-    height: 76,
-    paddingHorizontal: 10,
+    height: 58,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     shadowOpacity: 0,
     elevation: 0,
@@ -72,28 +73,28 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    height: 60,
+    height: 42,
     borderRadius: 360,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
   },
   navItemActive: {
-    flex: 1.46,
-    backgroundColor: colors.surface,
+    flex: 1.2,
+    backgroundColor: surface,
   },
   navItemPressed: {
     opacity: 0.8,
   },
   navLabel: {
-    color: colors.surface,
+    color: surface,
     fontWeight: '400',
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 8,
+    lineHeight: 12,
     letterSpacing: 0,
   },
   navLabelActive: {
-    color: colors.brand,
-    fontWeight: '500',
+    color: primary,
+    fontWeight: '600',
   },
 });

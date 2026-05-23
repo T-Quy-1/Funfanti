@@ -12,7 +12,9 @@ export type ScreenKey =
   | 'login'
   | 'auth-success'
   | 'home'
+  | 'my-quizzes'
   | 'discover'
+  | 'question-detail'
   | 'quiz'
   | 'result'
   | 'profile';
@@ -40,6 +42,7 @@ export type QuestionSetCard = {
   title: string;
   topic: string;
   subtitle: string;
+  creatorName?: string;
   progress: number;
   accent: string;
   artTone: string;
@@ -110,6 +113,7 @@ export const questionSets: QuestionSetCard[] = [
     title: 'USSR 101',
     topic: 'History',
     subtitle: 'A focused sprint through early Soviet history, symbols, and major turning points.',
+    creatorName: 'Funfanti',
     progress: 0.68,
     accent: '#E9FBFD',
     artTone: '#E6F9FB',
@@ -125,6 +129,7 @@ export const questionSets: QuestionSetCard[] = [
     title: 'Starter Sea Quiz',
     topic: 'Ocean',
     subtitle: 'Quick ocean facts about waves, habitats, and marine life.',
+    creatorName: 'Funfanti',
     progress: 0.46,
     accent: '#E9FBFD',
     artTone: '#DDF7FA',
@@ -140,6 +145,7 @@ export const questionSets: QuestionSetCard[] = [
     title: 'Aquatic Ecosystems',
     topic: 'Science',
     subtitle: 'Explore reefs, ocean zones, and how aquatic habitats stay balanced.',
+    creatorName: 'George Adam',
     progress: 0.24,
     accent: '#E9FBFD',
     artTone: '#DDF7FA',
@@ -155,6 +161,7 @@ export const questionSets: QuestionSetCard[] = [
     title: 'The Napoleonic Wars',
     topic: 'History',
     subtitle: 'A compact timeline of campaigns, coalitions, and consequences.',
+    creatorName: 'Eveline Charlos',
     progress: 0.18,
     accent: '#E9FBFD',
     artTone: '#E6F9FB',
@@ -194,13 +201,13 @@ export const quizQuestions: QuizQuestion[] = [
     artTone: '#dff2d7',
     imageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80',
     choices: [
-      { id: 'a', label: 'Sea horse', correct: true },
-      { id: 'b', label: 'Blue tang' },
-      { id: 'c', label: 'Angelfish' },
-      { id: 'd', label: 'Clownfish' },
+      { id: 'a', label: 'Sea Horse' },
+      { id: 'b', label: 'Great White Shark' },
+      { id: 'c', label: 'Jelly Fish', correct: true },
+      { id: 'd', label: 'Moray Eel' },
     ],
     explanation:
-      'A seahorse is a fish-like animal, but it is not classified as a fish in the way the others are.',
+      'Despite the name, a jellyfish is actually an invertebrate, not a fish.',
   },
   {
     id: 'q3',
