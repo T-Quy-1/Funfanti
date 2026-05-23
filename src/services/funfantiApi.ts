@@ -2,6 +2,8 @@ import {
   interests,
   onboardingSlides,
   questionSetTags,
+  questionSets as localQuestionSets,
+  localQuestionSetQuestions,
   quizQuestions,
   stats,
   type QuestionSetCard,
@@ -10,6 +12,16 @@ import {
 } from '../data/funfantiContent';
 
 type JsonRecord = Record<string, unknown>;
+
+class BackendHttpError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'BackendHttpError';
+    this.status = status;
+  }
+}
 
 export type AuthUser = {
   id: string;
@@ -52,6 +64,12 @@ const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:30
   '',
 );
 
+const useLocalData = process.env.EXPO_PUBLIC_USE_LOCAL_DATA !== 'false';
+const localProfile = {
+  displayName: 'John Doe',
+  email: 'john.doe@gmail.com',
+};
+
 type RemoteQuestionSet = {
   id?: unknown;
   title?: unknown;
@@ -89,14 +107,20 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init?.headers ?? {}),
-      },
-      signal: controller.signal,
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`${apiBaseUrl}${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(init?.headers ?? {}),
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw error;
+    }
 
     if (!response.ok) {
       let message = `Request failed with status ${response.status}`;
@@ -111,7 +135,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
         // Keep the status-based fallback when the server does not return JSON.
       }
 
-      throw new Error(message);
+      throw new BackendHttpError(response.status, message);
     }
 
     return (await response.json()) as T;
@@ -120,8 +144,73 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+function isBackendUnavailableError(error: unknown) {
+  return (
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    error instanceof TypeError ||
+    (error instanceof Error &&
+      !('status' in error) &&
+      /fetch|network|ECONNREFUSED|ECONNRESET|ENOTFOUND/i.test(error.message))
+  );
+}
+
 function withFallback<T>(fallback: T, loader: () => Promise<T>): Promise<T> {
-  return loader().catch(() => fallback);
+  return loader().catch((error: unknown) => {
+    if (isBackendUnavailableError(error)) {
+      return fallback;
+    }
+
+    throw error;
+  });
+}
+
+function resolveLocalQuestionSets(filters: QuestionSetFilters = {}) {
+  return applyLocalQuestionSetFilters(localQuestionSets, filters);
+}
+
+function resolveLocalQuestionSetQuestions(questionSetId: string) {
+  return localQuestionSetQuestions[questionSetId] ?? quizQuestions;
+}
+
+function resolveLocalAuthResponse(email: string, displayName?: string): AuthResponse {
+  const safeDisplayName = displayName?.trim() || email.split('@')[0] || 'Funfanti Learner';
+
+  return {
+    user: {
+      id: `local-${safeDisplayName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      email,
+      displayName: safeDisplayName,
+      avatarUrl: null,
+    },
+    accessToken: 'local-dev-token',
+  };
+}
+
+function resolveLocalQuizResult(
+  questionSetId: string,
+  payload: JsonRecord,
+): QuizSessionResult {
+  const responses = Array.isArray(payload.responses) ? payload.responses : [];
+  const localQuestions = resolveLocalQuestionSetQuestions(questionSetId);
+  const correctCount = localQuestions.reduce((count, question) => {
+    const selectedAnswerId = responses.find((response) => response?.questionId === question.id)
+      ?.selectedAnswerId;
+    const isCorrect = question.choices.some(
+      (choice) => choice.id === selectedAnswerId && choice.correct,
+    );
+    return count + Number(isCorrect);
+  }, 0);
+
+  return {
+    id: `local-session-${questionSetId}`,
+    score: correctCount,
+    status: 'COMPLETED',
+    totalTimeMs: typeof payload.totalTimeMs === 'number' ? payload.totalTimeMs : null,
+    correctCount,
+    totalQuestions: localQuestions.length,
+    percentile: Math.min(100, Math.max(25, Math.round((correctCount / Math.max(1, localQuestions.length)) * 100))),
+    analyticsSummary: 'Session completed locally with the bundled sample data.',
+  };
 }
 
 const normalize = (value: unknown) => String(value ?? '').trim();
@@ -308,18 +397,27 @@ const mapRemoteQuestions = (
 
 export const funfantiApi = {
   bootstrap: (): Promise<BootstrapPayload> => {
-    return withFallback(
-      {
-        questionSets: [],
-        questionSetTags: [],
-        quizQuestions: [],
+    if (useLocalData) {
+      return Promise.resolve({
+        questionSets: localQuestionSets,
+        questionSetTags,
+        quizQuestions,
         stats,
         interests,
         onboardingSlides,
-        profile: {
-          displayName: 'John Doe',
-          email: 'john.doe@gmail.com',
-        },
+        profile: localProfile,
+      });
+    }
+
+    return withFallback(
+      {
+        questionSets: localQuestionSets,
+        questionSetTags,
+        quizQuestions,
+        stats,
+        interests,
+        onboardingSlides,
+        profile: localProfile,
       },
       async () => {
         const [remoteQuestionSets, remoteTags] = await Promise.all([
@@ -334,41 +432,73 @@ export const funfantiApi = {
           stats,
           interests,
           onboardingSlides,
-          profile: {
-            displayName: 'John Doe',
-            email: 'john.doe@gmail.com',
-          },
+          profile: localProfile,
         };
       },
     );
   },
-  login: (email: string, password: string) =>
-    requestJson<AuthResponse>('/auth/login', {
+  login: (email: string, password: string) => {
+    if (useLocalData) {
+      void password;
+      return Promise.resolve(resolveLocalAuthResponse(email, localProfile.displayName));
+    }
+
+    return requestJson<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
-  register: (payload: { email: string; password: string; displayName: string }) =>
-    requestJson<AuthResponse>('/auth/register', {
+    });
+  },
+  register: (payload: { email: string; password: string; displayName: string }) => {
+    if (useLocalData) {
+      return Promise.resolve(resolveLocalAuthResponse(payload.email, payload.displayName));
+    }
+
+    return requestJson<AuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
-  getQuestionSets: (filters: QuestionSetFilters = {}, accessToken?: string | null) =>
-    withFallback([], () => fetchQuestionSets(filters, accessToken)),
-  getQuestionSetTags: () => withFallback([], fetchQuestionSetTags),
-  getQuestionSetQuestions: (questionSetId: string) =>
-    withFallback([], async () => {
+    });
+  },
+  getQuestionSets: (filters: QuestionSetFilters = {}, accessToken?: string | null) => {
+    void accessToken;
+
+    if (useLocalData) {
+      return Promise.resolve(resolveLocalQuestionSets(filters));
+    }
+
+    return withFallback([], () => fetchQuestionSets(filters, accessToken));
+  },
+  getQuestionSetTags: () => {
+    if (useLocalData) {
+      return Promise.resolve(questionSetTags);
+    }
+
+    return withFallback([], fetchQuestionSetTags);
+  },
+  getQuestionSetQuestions: (questionSetId: string) => {
+    if (useLocalData) {
+      return Promise.resolve(resolveLocalQuestionSetQuestions(questionSetId));
+    }
+
+    return withFallback([], async () => {
       const payload = await requestJson<RemoteQuestionSetPayload>(
         `/question-sets/${questionSetId}/questions`,
       );
       const mappedQuestions = mapRemoteQuestions(payload);
       return mappedQuestions;
-    }),
+    });
+  },
   submitQuizSession: (
     questionSetId: string,
     payload: JsonRecord,
     accessToken?: string | null,
-  ) =>
-    withFallback(
+  ) => {
+    void accessToken;
+
+    if (useLocalData) {
+      return Promise.resolve(resolveLocalQuizResult(questionSetId, payload));
+    }
+
+    return withFallback(
       {
         score: 0,
         status: 'COMPLETED',
@@ -386,9 +516,17 @@ export const funfantiApi = {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
-    ),
-  bookmarkQuestionSet: (questionSetId: string, accessToken?: string | null) =>
-    withFallback(
+    );
+  },
+  bookmarkQuestionSet: (questionSetId: string, accessToken?: string | null) => {
+    void questionSetId;
+    void accessToken;
+
+    if (useLocalData) {
+      return Promise.resolve({ ok: true });
+    }
+
+    return withFallback(
       { ok: true },
       () =>
         requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
@@ -397,9 +535,17 @@ export const funfantiApi = {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
-    ),
-  removeQuestionSetBookmark: (questionSetId: string, accessToken?: string | null) =>
-    withFallback(
+    );
+  },
+  removeQuestionSetBookmark: (questionSetId: string, accessToken?: string | null) => {
+    void questionSetId;
+    void accessToken;
+
+    if (useLocalData) {
+      return Promise.resolve({ ok: true });
+    }
+
+    return withFallback(
       { ok: true },
       () =>
         requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
@@ -408,9 +554,17 @@ export const funfantiApi = {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
-    ),
-  updatePreferences: (payload: JsonRecord, accessToken?: string | null) =>
-    withFallback(
+    );
+  },
+  updatePreferences: (payload: JsonRecord, accessToken?: string | null) => {
+    void payload;
+    void accessToken;
+
+    if (useLocalData) {
+      return Promise.resolve({ ok: true });
+    }
+
+    return withFallback(
       { ok: true },
       () =>
         requestJson<JsonRecord>('/users/me/preferences', {
@@ -420,5 +574,6 @@ export const funfantiApi = {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
-    ),
+    );
+  },
 };
