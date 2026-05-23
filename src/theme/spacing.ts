@@ -45,10 +45,10 @@ export const gradients = {
 // Typography scales
 export const typography = {
   // Headings - reduced from 800-900 to 600-700
-  h1: { fontSize: 32, fontWeight: '700', lineHeight: 40, letterSpacing: -1 },
-  h2: { fontSize: 28, fontWeight: '600', lineHeight: 36, letterSpacing: -0.5 },
-  h3: { fontSize: 24, fontWeight: '600', lineHeight: 32, letterSpacing: -0.3 },
-  h4: { fontSize: 20, fontWeight: '600', lineHeight: 28, letterSpacing: -0.2 },
+  h1: { fontSize: 32, fontWeight: '700', lineHeight: 40, letterSpacing: 0 },
+  h2: { fontSize: 28, fontWeight: '600', lineHeight: 36, letterSpacing: 0 },
+  h3: { fontSize: 24, fontWeight: '600', lineHeight: 32, letterSpacing: 0 },
+  h4: { fontSize: 20, fontWeight: '600', lineHeight: 28, letterSpacing: 0 },
   
   // Body
   body1: { fontSize: 16, fontWeight: '400', lineHeight: 24 },

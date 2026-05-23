@@ -42,8 +42,6 @@ const questionRanges = [
   { label: 'Over 50', minQuestions: 51, maxQuestions: undefined },
 ];
 
-const tagOptions = ['Literature', 'History', 'Science', 'Mathematics', 'Ocean', 'Nature', 'Fun Facts'];
-
 const sortOptions: Array<{ label: string; value: QuestionSetSort }> = [
   { label: 'Best Rating', value: 'rating' },
   { label: 'Most Popular', value: 'popular' },
@@ -59,8 +57,10 @@ type QuestionSetsScreenProps = {
   questionSetsLoading: boolean;
   questionSetsError: string | null;
   searchQuery: string;
+  submittedSearchQuery: string;
   filters: QuestionSetFilters;
   bookmarkedQuestionSetIds: string[];
+  bookmarkActionLoadingId: string | null;
   questionSetActionLoadingId: string | null;
   onSelectTab: (tab: AppTab) => void;
   onChangeSearchQuery: (value: string) => void;
@@ -160,12 +160,14 @@ const resolveImageSource = (questionSet: QuestionSetCard): ImageSourcePropType |
 
 function QuestionSetCardView({
   bookmarked,
+  bookmarkLoading,
   loading,
   questionSet,
   onPlay,
   onToggleBookmark,
 }: {
   bookmarked: boolean;
+  bookmarkLoading: boolean;
   loading: boolean;
   questionSet: QuestionSetCard;
   onPlay: () => void;
@@ -230,7 +232,13 @@ function QuestionSetCardView({
             <Text style={styles.playButtonText}>{loading ? 'Loading' : 'Play'}</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.saveButton, bookmarked && styles.saveButtonActive, pressed && styles.pressed]}
+            disabled={bookmarkLoading}
+            style={({ pressed }) => [
+              styles.saveButton,
+              bookmarked && styles.saveButtonActive,
+              bookmarkLoading && styles.disabledButton,
+              pressed && !bookmarkLoading && styles.pressed,
+            ]}
             onPress={onToggleBookmark}
           >
             <Feather
@@ -239,7 +247,7 @@ function QuestionSetCardView({
               color={bookmarked ? palette.white : palette.navy}
             />
             <Text style={[styles.saveButtonText, bookmarked && styles.saveButtonTextActive]}>
-              {bookmarked ? 'Saved' : 'Save'}
+              {bookmarkLoading ? 'Saving' : bookmarked ? 'Saved' : 'Save'}
             </Text>
           </Pressable>
         </View>
@@ -277,8 +285,10 @@ export function QuestionSetsScreen({
   questionSetsLoading,
   questionSetsError,
   searchQuery,
+  submittedSearchQuery,
   filters,
   bookmarkedQuestionSetIds,
+  bookmarkActionLoadingId,
   questionSetActionLoadingId,
   onSelectTab,
   onChangeSearchQuery,
@@ -293,7 +303,7 @@ export function QuestionSetsScreen({
   const [questionCountHelpVisible, setQuestionCountHelpVisible] = useState(false);
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
-  const searchActive = searchQuery.trim().length > 0;
+  const searchActive = submittedSearchQuery.trim().length > 0;
   const hasActiveFilters = hasActiveQuestionSetFilters(filters);
   const showFeatured = !searchActive && !hasActiveFilters;
 
@@ -499,6 +509,7 @@ export function QuestionSetsScreen({
             key={questionSet.id}
             questionSet={questionSet}
             bookmarked={bookmarkedQuestionSetIds.includes(questionSet.id)}
+            bookmarkLoading={bookmarkActionLoadingId === questionSet.id}
             loading={questionSetActionLoadingId === questionSet.id}
             onPlay={() => onPlayQuestionSet(questionSet)}
             onToggleBookmark={() => onToggleBookmark(questionSet)}
@@ -519,7 +530,9 @@ export function QuestionSetsScreen({
           >
             <Animated.View
               style={[styles.filterSheet, { transform: [{ translateY: sheetTranslateY }] }]}
+              {...sheetPanResponder.panHandlers}
             >
+              <View style={styles.sheetHandle} />
               <View style={styles.sheetHeader}>
                 <View style={styles.sheetTitleRow}>
                   <Text style={styles.sheetTitle}>Filters</Text>
@@ -534,7 +547,7 @@ export function QuestionSetsScreen({
                 contentContainerStyle={styles.sheetContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
-                scrollEnabled={false}
+                scrollEnabled
               >
               <View style={styles.filterSection}>
                 <View style={styles.filterTitleRow}>

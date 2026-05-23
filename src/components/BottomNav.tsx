@@ -14,7 +14,7 @@ type BottomNavProps = {
 
 const navItems = [
   { key: 'home', label: 'Home', icon: 'home' },
-  { key: 'quiz', label: 'My Course', icon: 'book-open' },
+  { key: 'quiz', label: 'Saved', icon: 'bookmark' },
   { key: 'discover', label: 'Question Sets', icon: 'help-circle' },
   { key: 'profile', label: 'Profile', icon: 'user' },
 ] as const;

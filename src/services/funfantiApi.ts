@@ -1,9 +1,5 @@
 import {
-  interests,
   onboardingSlides,
-  questionSetTags,
-  quizQuestions,
-  stats,
   type QuestionSetCard,
   type QuestionSetFilters,
   type QuizQuestion,
@@ -23,8 +19,53 @@ export type AuthResponse = {
   accessToken: string;
 };
 
+export type UserPreference = {
+  theme: 'light' | 'dark' | 'system' | string;
+  hapticsEnabled: boolean;
+  notificationOverlay: boolean;
+  lockScreenTiming?: unknown;
+};
+
+export type UserProfile = AuthUser & {
+  preference?: UserPreference;
+};
+
+export type UserBookmark = {
+  id: string;
+  createdAt: string;
+  questionSet: {
+    id: string;
+    title: string;
+    description: string;
+    topic: string;
+    mediaUrl?: string | null;
+    isFeatured: boolean;
+  };
+};
+
+export type UserActivity = {
+  id: string;
+  score: number | null;
+  status: string;
+  totalTimeMs: number | null;
+  createdAt: string;
+  questionSet: {
+    id: string;
+    title: string;
+    topic: string;
+  };
+};
+
+export type NotificationSchedule = {
+  id: string;
+  dailyTime: string;
+  frequency: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type QuizSessionResult = {
-  id?: string;
+  id: string;
   score: number;
   status: string;
   totalTimeMs: number | null;
@@ -32,19 +73,6 @@ export type QuizSessionResult = {
   totalQuestions: number;
   percentile: number;
   analyticsSummary: string;
-};
-
-type BootstrapPayload = {
-  questionSets: QuestionSetCard[];
-  questionSetTags: string[];
-  quizQuestions: QuizQuestion[];
-  stats: typeof stats;
-  interests: typeof interests;
-  onboardingSlides: typeof onboardingSlides;
-  profile: {
-    displayName: string;
-    email: string;
-  };
 };
 
 const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000').replace(
@@ -56,17 +84,21 @@ type RemoteQuestionSet = {
   id?: unknown;
   title?: unknown;
   description?: unknown;
+  summary?: unknown;
   topic?: unknown;
   mediaUrl?: unknown;
   isFeatured?: unknown;
   avgRating?: unknown;
+  reviewCount?: unknown;
   tags?: unknown;
   questionCount?: unknown;
   sessionCount?: unknown;
   progress?: unknown;
   isBookmarked?: unknown;
+  createdAt?: unknown;
   creator?: {
     displayName?: unknown;
+    avatarUrl?: unknown;
   };
 };
 
@@ -84,9 +116,12 @@ type RemoteQuestionSetPayload = RemoteQuestionSet & {
   }>;
 };
 
+const authHeader = (accessToken?: string | null) =>
+  accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -115,13 +150,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     }
 
     return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request took too long. Please try again.');
+    }
+    throw error;
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-function withFallback<T>(fallback: T, loader: () => Promise<T>): Promise<T> {
-  return loader().catch(() => fallback);
 }
 
 const normalize = (value: unknown) => String(value ?? '').trim();
@@ -131,84 +167,42 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(numeric) ? numeric : fallback;
 };
 
-const normalizeTags = (value: unknown, fallback: string[]) => {
+const normalizeTags = (value: unknown) => {
   if (!Array.isArray(value)) {
-    return fallback;
+    return [];
   }
 
-  const tags = value.map((item) => normalize(item)).filter(Boolean);
-  return tags.length > 0 ? tags : fallback;
+  return value.map((item) => normalize(item)).filter(Boolean);
 };
 
 const mapRemoteQuestionSet = (remote: RemoteQuestionSet, index: number): QuestionSetCard => {
+  const description = normalize(remote.description);
+  const summary = normalize(remote.summary);
   const mediaUrl = normalize(remote.mediaUrl);
 
   return {
     id: normalize(remote.id) || `question-set-${index + 1}`,
     title: normalize(remote.title) || 'Untitled question set',
     topic: normalize(remote.topic) || 'General',
-    subtitle: normalize(remote.description) || 'No description provided.',
+    subtitle: summary || description || 'No description provided.',
+    description: description || summary || 'No description provided.',
+    summary: summary || undefined,
     creatorName: normalize(remote.creator?.displayName) || undefined,
+    creatorAvatarUrl: normalize(remote.creator?.avatarUrl) || undefined,
     progress: normalizeNumber(remote.progress, 0),
     accent: '#E9FBFD',
     artTone: '#DDF7FA',
     imageUrl: mediaUrl || undefined,
     imageSource: undefined,
-    tags: normalizeTags(remote.tags, []),
+    tags: normalizeTags(remote.tags),
     questionCount: normalizeNumber(remote.questionCount, 0),
     avgRating: normalizeNumber(remote.avgRating, 0),
+    reviewCount: normalizeNumber(remote.reviewCount, 0),
     sessionCount: normalizeNumber(remote.sessionCount, 0),
     isFeatured: typeof remote.isFeatured === 'boolean' ? remote.isFeatured : false,
     isBookmarked: Boolean(remote.isBookmarked),
+    createdAt: normalize(remote.createdAt) || undefined,
   };
-};
-
-const applyLocalQuestionSetFilters = (
-  items: QuestionSetCard[],
-  filters: QuestionSetFilters = {},
-) => {
-  const searchTokens =
-    filters.search
-      ?.trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((token) => token.length > 2) ?? [];
-  const requestedTags = filters.tags?.map((tag) => tag.toLowerCase()) ?? [];
-
-  const filtered = items.filter((item) => {
-    const searchable = [item.title, item.subtitle, item.topic, ...item.tags]
-      .join(' ')
-      .toLowerCase();
-    const matchesSearch =
-      searchTokens.length === 0 || searchTokens.some((token) => searchable.includes(token));
-    const matchesTags =
-      requestedTags.length === 0 ||
-      requestedTags.some((tag) => item.tags.some((itemTag) => itemTag.toLowerCase() === tag));
-    const matchesQuestions =
-      (filters.minQuestions === undefined || item.questionCount >= filters.minQuestions) &&
-      (filters.maxQuestions === undefined || item.questionCount <= filters.maxQuestions);
-    const matchesRating =
-      (filters.minRating === undefined || item.avgRating >= filters.minRating) &&
-      (filters.maxRating === undefined || item.avgRating <= filters.maxRating);
-    const matchesFeatured =
-      filters.isFeatured === undefined || item.isFeatured === filters.isFeatured;
-
-    return matchesSearch && matchesTags && matchesQuestions && matchesRating && matchesFeatured;
-  });
-
-  if (filters.sort === 'latest') {
-    return filtered;
-  }
-
-  if (filters.sort === 'rating') {
-    return [...filtered].sort((a, b) => b.avgRating - a.avgRating);
-  }
-
-  if (filters.sort === 'popular') {
-    return [...filtered].sort((a, b) => b.sessionCount - a.sessionCount);
-  }
-
-  return [...filtered].sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured));
 };
 
 const buildQuestionSetQuery = (filters: QuestionSetFilters = {}) => {
@@ -253,31 +247,15 @@ const buildQuestionSetQuery = (filters: QuestionSetFilters = {}) => {
 };
 
 const fetchQuestionSets = async (filters: QuestionSetFilters = {}, accessToken?: string | null) => {
-  const loadRemoteQuestionSets = (nextFilters: QuestionSetFilters) =>
-    requestJson<RemoteQuestionSet[]>(`/question-sets${buildQuestionSetQuery(nextFilters)}`, {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
-
-  let remoteQuestionSets = await loadRemoteQuestionSets(filters);
-  const searchTokens =
-    filters.search
-      ?.trim()
-      .split(/\s+/)
-      .filter((token) => token.length > 2) ?? [];
-
-  if (remoteQuestionSets.length === 0 && searchTokens.length > 1) {
-    for (const token of searchTokens) {
-      remoteQuestionSets = await loadRemoteQuestionSets({ ...filters, search: token });
-      if (remoteQuestionSets.length > 0) {
-        break;
-      }
-    }
-  }
+  const remoteQuestionSets = await requestJson<RemoteQuestionSet[]>(
+    `/question-sets${buildQuestionSetQuery(filters)}`,
+    {
+      headers: authHeader(accessToken),
+    },
+  );
 
   return remoteQuestionSets.map(mapRemoteQuestionSet);
 };
-
-const fetchQuestionSetTags = async () => requestJson<string[]>('/question-sets/tags');
 
 const mapRemoteQuestions = (
   payload: RemoteQuestionSetPayload,
@@ -286,14 +264,13 @@ const mapRemoteQuestions = (
   const remoteQuestions = Array.isArray(payload.questions) ? payload.questions : [];
   const topic = normalize(payload.title) || fallbackSet?.title || 'Question Set';
   const artTone = fallbackSet?.artTone ?? '#DDF7FA';
-  const setMediaUrl = normalize(payload.mediaUrl) || fallbackSet?.imageUrl;
   const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
 
   return remoteQuestions.map((question, questionIndex) => ({
     id: normalize(question.id) || `question-${questionIndex + 1}`,
     topic,
     prompt: normalize(question.text) || `Question ${questionIndex + 1}`,
-    explanation: normalize(question.explanationText) || 'Nice work. Keep going.',
+    explanation: normalize(question.explanationText) || 'No explanation was provided for this question.',
     artTone,
     imageUrl: normalize(question.mediaUrl) || undefined,
     imageSource: undefined,
@@ -307,41 +284,7 @@ const mapRemoteQuestions = (
 };
 
 export const funfantiApi = {
-  bootstrap: (): Promise<BootstrapPayload> => {
-    return withFallback(
-      {
-        questionSets: [],
-        questionSetTags: [],
-        quizQuestions: [],
-        stats,
-        interests,
-        onboardingSlides,
-        profile: {
-          displayName: 'John Doe',
-          email: 'john.doe@gmail.com',
-        },
-      },
-      async () => {
-        const [remoteQuestionSets, remoteTags] = await Promise.all([
-          fetchQuestionSets(),
-          fetchQuestionSetTags(),
-        ]);
-
-        return {
-          questionSets: remoteQuestionSets,
-          questionSetTags: remoteTags,
-          quizQuestions: [],
-          stats,
-          interests,
-          onboardingSlides,
-          profile: {
-            displayName: 'John Doe',
-            email: 'john.doe@gmail.com',
-          },
-        };
-      },
-    );
-  },
+  onboardingSlides,
   login: (email: string, password: string) =>
     requestJson<AuthResponse>('/auth/login', {
       method: 'POST',
@@ -352,73 +295,65 @@ export const funfantiApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getQuestionSets: (filters: QuestionSetFilters = {}, accessToken?: string | null) =>
-    withFallback([], () => fetchQuestionSets(filters, accessToken)),
-  getQuestionSetTags: () => withFallback([], fetchQuestionSetTags),
-  getQuestionSetQuestions: (questionSetId: string) =>
-    withFallback([], async () => {
-      const payload = await requestJson<RemoteQuestionSetPayload>(
-        `/question-sets/${questionSetId}/questions`,
-      );
-      const mappedQuestions = mapRemoteQuestions(payload);
-      return mappedQuestions;
+  getProfile: (accessToken: string) =>
+    requestJson<UserProfile>('/users/me', {
+      headers: authHeader(accessToken),
     }),
+  updateProfile: (payload: { displayName?: string; avatarUrl?: string }, accessToken: string) =>
+    requestJson<UserProfile>('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      headers: authHeader(accessToken),
+    }),
+  updatePreferences: (payload: JsonRecord, accessToken: string) =>
+    requestJson<UserProfile>('/users/me/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      headers: authHeader(accessToken),
+    }),
+  getBookmarks: (accessToken: string) =>
+    requestJson<UserBookmark[]>('/users/me/bookmarks', {
+      headers: authHeader(accessToken),
+    }),
+  getActivity: (accessToken: string) =>
+    requestJson<UserActivity[]>('/users/me/activity', {
+      headers: authHeader(accessToken),
+    }),
+  getSchedules: (accessToken: string) =>
+    requestJson<NotificationSchedule[]>('/users/me/schedules', {
+      headers: authHeader(accessToken),
+    }),
+  getQuestionSets: (filters: QuestionSetFilters = {}, accessToken?: string | null) =>
+    fetchQuestionSets(filters, accessToken),
+  getQuestionSet: async (questionSetId: string, accessToken?: string | null) => {
+    const remote = await requestJson<RemoteQuestionSet>(`/question-sets/${questionSetId}`, {
+      headers: authHeader(accessToken),
+    });
+    return mapRemoteQuestionSet(remote, 0);
+  },
+  getQuestionSetTags: () => requestJson<string[]>('/question-sets/tags'),
+  getQuestionSetQuestions: async (questionSetId: string, fallbackSet?: QuestionSetCard) => {
+    const payload = await requestJson<RemoteQuestionSetPayload>(`/question-sets/${questionSetId}/questions`);
+    return mapRemoteQuestions(payload, fallbackSet);
+  },
   submitQuizSession: (
     questionSetId: string,
     payload: JsonRecord,
-    accessToken?: string | null,
+    accessToken: string,
   ) =>
-    withFallback(
-      {
-        score: 0,
-        status: 'COMPLETED',
-        totalTimeMs: typeof payload.totalTimeMs === 'number' ? payload.totalTimeMs : null,
-        correctCount: 0,
-        totalQuestions: Array.isArray(payload.responses) ? payload.responses.length : 0,
-        percentile: 50,
-        analyticsSummary: 'Session completed locally while the backend was unavailable.',
-      } satisfies QuizSessionResult,
-      () =>
-        requestJson<QuizSessionResult>(`/question-sets/${questionSetId}/sessions`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-          headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-        }),
-    ),
-  bookmarkQuestionSet: (questionSetId: string, accessToken?: string | null) =>
-    withFallback(
-      { ok: true },
-      () =>
-        requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
-          method: 'POST',
-          headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-        }),
-    ),
-  removeQuestionSetBookmark: (questionSetId: string, accessToken?: string | null) =>
-    withFallback(
-      { ok: true },
-      () =>
-        requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
-          method: 'DELETE',
-          headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-        }),
-    ),
-  updatePreferences: (payload: JsonRecord, accessToken?: string | null) =>
-    withFallback(
-      { ok: true },
-      () =>
-        requestJson<JsonRecord>('/users/me/preferences', {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-          headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-        }),
-    ),
+    requestJson<QuizSessionResult>(`/question-sets/${questionSetId}/sessions`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: authHeader(accessToken),
+    }),
+  bookmarkQuestionSet: (questionSetId: string, accessToken: string) =>
+    requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+    }),
+  removeQuestionSetBookmark: (questionSetId: string, accessToken: string) =>
+    requestJson<JsonRecord>(`/question-sets/${questionSetId}/bookmark`, {
+      method: 'DELETE',
+      headers: authHeader(accessToken),
+    }),
 };

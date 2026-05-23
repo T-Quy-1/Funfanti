@@ -11,41 +11,33 @@ const palette = {
   black: '#020202',
   blackSoft: '#161616',
   white: '#FFFFFF',
-  selected: '#D3F1D9',
-  chip: '#EEF4C2',
 };
 
 type IntroFlowProps = {
   screen: ScreenKey;
   activeSlide: number;
-  selectedInterests: string[];
-  interests: string[];
-  onSelectInterest: (interest: string) => void;
   onGoToApp: () => void;
   onAdvanceOnboarding: () => void;
-  onContinue: () => void;
-  onSetScreen: (screen: ScreenKey) => void;
 };
 
 export function IntroFlow({
   screen,
   activeSlide,
-  selectedInterests,
-  interests,
-  onSelectInterest,
   onGoToApp,
   onAdvanceOnboarding,
-  onContinue,
 }: IntroFlowProps) {
-  const minimumInterestCount = 3;
-  const selectedInterestCount = selectedInterests.length;
-  const hasEnoughInterests = selectedInterestCount >= minimumInterestCount;
-  const remainingInterestCount = Math.max(minimumInterestCount - selectedInterestCount, 0);
-
   const renderLogo = (variant: 'splash' | 'onboarding' = 'onboarding') => (
     <View style={variant === 'splash' ? styles.splashLogo : styles.onboardingLogo}>
-      <Image source={logoElephant} style={variant === 'splash' ? styles.splashElephant : styles.onboardingElephant} resizeMode="contain" />
-      <Image source={logoWordmark} style={variant === 'splash' ? styles.splashWordmark : styles.onboardingWordmark} resizeMode="contain" />
+      <Image
+        source={logoElephant}
+        style={variant === 'splash' ? styles.splashElephant : styles.onboardingElephant}
+        resizeMode="contain"
+      />
+      <Image
+        source={logoWordmark}
+        style={variant === 'splash' ? styles.splashWordmark : styles.onboardingWordmark}
+        resizeMode="contain"
+      />
     </View>
   );
 
@@ -57,19 +49,13 @@ export function IntroFlow({
     </View>
   );
 
-  const renderOutlineButton = (label: string, onPress: () => void, withIcon = false, disabled = false) => (
+  const renderOutlineButton = (label: string, onPress: () => void, withIcon = false) => (
     <Pressable
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.outlineButton,
-        disabled && styles.outlineButtonDisabled,
-        pressed && !disabled && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.outlineButton, pressed && styles.pressed]}
       onPress={onPress}
     >
-      <Text style={[styles.outlineButtonText, disabled && styles.outlineButtonTextDisabled]}>{label}</Text>
-      {withIcon ? <Feather name="chevron-right" size={22} color={disabled ? '#8A8A8A' : palette.blackSoft} /> : null}
+      <Text style={styles.outlineButtonText}>{label}</Text>
+      {withIcon ? <Feather name="chevron-right" size={22} color={palette.blackSoft} /> : null}
     </Pressable>
   );
 
@@ -82,47 +68,8 @@ export function IntroFlow({
     );
   }
 
-  if (screen === 'interests') {
-    return (
-      <View style={styles.page}>
-        <ScrollView contentContainerStyle={styles.interestContainer}>
-          <Text style={styles.interestTitle}>What interests you?</Text>
-          <Text style={styles.interestSubtitle}>
-            Pick at least 3 topics to get started. You can always change these or create your own later.
-          </Text>
-          <Text style={[styles.interestRequirement, hasEnoughInterests && styles.interestRequirementReady]}>
-            {hasEnoughInterests ? `${selectedInterestCount} selected` : `Pick ${remainingInterestCount} more`}
-          </Text>
-
-          <View style={styles.interestList}>
-            {interests.map((interest) => {
-              const active = selectedInterests.includes(interest);
-              return (
-                <Pressable
-                  key={interest}
-                  accessibilityState={{ selected: active }}
-                  style={({ pressed }) => [
-                    styles.interestCard,
-                    { backgroundColor: active ? palette.selected : palette.chip },
-                    pressed && styles.pressed,
-                  ]}
-                  onPress={() => onSelectInterest(interest)}
-                >
-                  <Text style={styles.interestCardText}>{interest}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.interestActionRow}>
-            {renderOutlineButton('Next', onContinue, true, !hasEnoughInterests)}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
   const slide = onboardingSlides[activeSlide] ?? onboardingSlides[0];
+  const finalSlide = activeSlide === onboardingSlides.length - 1;
 
   return (
     <View style={styles.page}>
@@ -133,7 +80,7 @@ export function IntroFlow({
         <Text style={styles.onboardingText}>{slide.description}</Text>
         <View style={styles.onboardingActions}>
           {renderOutlineButton('Skip', onGoToApp)}
-          {renderOutlineButton(activeSlide === onboardingSlides.length - 1 ? 'Next' : 'Next', onAdvanceOnboarding, true)}
+          {renderOutlineButton(finalSlide ? 'Get started' : 'Next', onAdvanceOnboarding, true)}
         </View>
       </ScrollView>
     </View>
@@ -153,33 +100,36 @@ const styles = StyleSheet.create({
   },
   splashLogo: {
     alignItems: 'center',
-    width: 344,
-    height: 382,
-    marginTop: 88,
+    width: '86%',
+    maxWidth: 344,
   },
   splashElephant: {
     width: 288,
+    maxWidth: '84%',
     height: 207,
   },
   splashWordmark: {
     width: 343,
+    maxWidth: '100%',
     height: 229,
     marginTop: -50,
   },
   splashLoader: {
-    marginTop: 0,
+    marginTop: 18,
   },
   onboardingContainer: {
-    minHeight: 852,
+    flexGrow: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 29,
-    paddingTop: 142,
+    paddingTop: 64,
     paddingBottom: 31,
   },
   onboardingLogo: {
     alignItems: 'center',
     width: 236,
-    height: 263,
+    maxWidth: '80%',
+    minHeight: 214,
   },
   onboardingElephant: {
     width: 197,
@@ -193,8 +143,8 @@ const styles = StyleSheet.create({
   dotRow: {
     flexDirection: 'row',
     gap: 5,
-    marginTop: 0,
-    marginBottom: 45,
+    marginTop: 6,
+    marginBottom: 34,
   },
   dot: {
     width: 10,
@@ -208,33 +158,33 @@ const styles = StyleSheet.create({
     backgroundColor: palette.black,
   },
   onboardingTitle: {
-    width: 321,
+    width: '100%',
+    maxWidth: 321,
     color: palette.black,
-    fontSize: 36,
-    lineHeight: 48,
+    fontSize: 34,
+    lineHeight: 44,
     fontWeight: '400',
     textAlign: 'center',
   },
   onboardingText: {
-    width: 321,
+    width: '100%',
+    maxWidth: 321,
     marginTop: 16,
     color: palette.black,
-    fontSize: 18,
-    lineHeight: 27,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: '400',
     textAlign: 'center',
   },
   onboardingActions: {
-    position: 'absolute',
-    left: 29,
-    right: 29,
-    bottom: 31,
+    alignSelf: 'stretch',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 42,
   },
   outlineButton: {
     minWidth: 100,
-    height: 49,
+    minHeight: 49,
     borderWidth: 1,
     borderColor: palette.blackSoft,
     borderRadius: 360,
@@ -245,74 +195,12 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     paddingRight: 8,
   },
-  outlineButtonDisabled: {
-    borderColor: '#C7C7C7',
-    backgroundColor: '#F4F4F4',
-  },
   outlineButtonText: {
     color: palette.blackSoft,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '400',
     textAlign: 'center',
-  },
-  outlineButtonTextDisabled: {
-    color: '#8A8A8A',
-  },
-  interestContainer: {
-    minHeight: 852,
-    paddingTop: 93,
-    paddingHorizontal: 15,
-    paddingBottom: 31,
-  },
-  interestTitle: {
-    color: palette.black,
-    fontSize: 30,
-    lineHeight: 40,
-    fontWeight: '400',
-    textAlign: 'center',
-  },
-  interestSubtitle: {
-    alignSelf: 'center',
-    width: 321,
-    marginTop: 8,
-    color: palette.black,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '400',
-    textAlign: 'center',
-  },
-  interestRequirement: {
-    marginTop: 10,
-    color: '#B42318',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  interestRequirementReady: {
-    color: palette.primary,
-  },
-  interestList: {
-    gap: 13,
-    marginTop: 19,
-  },
-  interestCard: {
-    height: 56,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  interestCardText: {
-    color: palette.blackSoft,
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
-  },
-  interestActionRow: {
-    alignItems: 'flex-end',
-    marginTop: 21,
   },
   pressed: {
     opacity: 0.72,

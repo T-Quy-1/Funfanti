@@ -9,7 +9,6 @@ interface StatCardProps {
   value: string | number;
   unit?: string;
   iconName?: React.ComponentProps<typeof Feather>['name'];
-  gradient?: string;
   backgroundColor?: string;
   textColor?: string;
   accentColor?: string;
@@ -22,7 +21,6 @@ export function StatCard({
   value,
   unit,
   iconName = 'bar-chart-2',
-  gradient,
   backgroundColor = colors.surface,
   textColor = colors.text,
   accentColor = colors.brandGreen,
@@ -43,56 +41,35 @@ export function StatCard({
   const getTrendSymbol = () => {
     switch (trend) {
       case 'up':
-        return '↑';
+        return '+';
       case 'down':
-        return '↓';
+        return '-';
       default:
-        return '→';
+        return '0';
     }
   };
 
   return (
-    <View style={[
-      styles.card,
-      { backgroundColor },
-    ]}>
-      {/* Icon and title area */}
+    <View style={[styles.card, { backgroundColor }]}>
       <View style={styles.header}>
         <View style={[styles.iconBubble, { backgroundColor: `${accentColor}1A` }]}>
           <Feather name={iconName} size={16} color={accentColor} />
         </View>
-        <Text style={[styles.title, { color: textColor }]}>
-          {title}
-        </Text>
+        <Text style={[styles.title, { color: textColor }]}>{title}</Text>
       </View>
 
-      {/* Value area */}
       <View style={styles.valueContainer}>
         <View style={styles.mainValue}>
-          <Text style={[styles.value, { color: accentColor }]}>
-            {value}
-          </Text>
-          {unit && (
-            <Text style={[styles.unit, { color: textColor }]}>
-              {unit}
-            </Text>
-          )}
+          <Text style={[styles.value, { color: accentColor }]}>{value}</Text>
+          {unit ? <Text style={[styles.unit, { color: textColor }]}>{unit}</Text> : null}
         </View>
 
-        {/* Trend badge */}
-        {trend && trendValue && (
-          <View style={[
-            styles.trendBadge,
-            { borderColor: getTrendColor() }
-          ]}>
-            <Text style={[styles.trendSymbol, { color: getTrendColor() }]}>
-              {getTrendSymbol()}
-            </Text>
-            <Text style={[styles.trendValue, { color: getTrendColor() }]}>
-              {trendValue}
-            </Text>
+        {trend && trendValue ? (
+          <View style={styles.trendBadge}>
+            <Text style={[styles.trendSymbol, { color: getTrendColor() }]}>{getTrendSymbol()}</Text>
+            <Text style={[styles.trendValue, { color: getTrendColor() }]}>{trendValue}</Text>
           </View>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -122,7 +99,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.3,
-    color: '#9CA3AF',
     lineHeight: 18,
   },
   valueContainer: {
@@ -142,7 +118,6 @@ const styles = StyleSheet.create({
   unit: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#9CA3AF',
   },
   trendBadge: {
     flexDirection: 'row',
@@ -150,7 +125,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.full,
-    borderWidth: 0,
     gap: 4,
   },
   trendSymbol: {

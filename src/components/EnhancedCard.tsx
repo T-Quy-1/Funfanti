@@ -96,21 +96,9 @@ export function EnhancedCard({
 
       {/* Content */}
       <View style={styles.content}>
-        {title && (
-          <Text style={styles.title} numberOfLines={2}>
-            {title}
-          </Text>
-        )}
-        {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        )}
-        {description && (
-          <Text style={styles.description} numberOfLines={3}>
-            {description}
-          </Text>
-        )}
+        {title ? <Text style={styles.title}>{title}</Text> : null}
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        {description ? <Text style={styles.description}>{description}</Text> : null}
         {children}
       </View>
     </Pressable>

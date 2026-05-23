@@ -5,8 +5,6 @@ export type AppTab = 'home' | 'discover' | 'quiz' | 'profile';
 export type BootstrapState = {
   screen: ScreenKey;
   activeSlide: number;
-  selectedInterest: string;
-  selectedInterests: string[];
   activeTab: AppTab;
   loginEmail: string;
   loginPassword: string;
@@ -14,8 +12,6 @@ export type BootstrapState = {
   registerPassword: string;
   registerName: string;
   onboardingSlides: ReadonlyArray<{ key: ScreenKey; title: string; description: string }>;
-  interests: string[];
-  filterChips: string[];
   questionSets: QuestionSetCard[];
   questionSetTags: string[];
   questionSetsLoading: boolean;
@@ -25,7 +21,6 @@ export type BootstrapState = {
   bookmarkedQuestionSetIds: string[];
   activeQuestionSetId: string;
   quizQuestions: QuizQuestion[];
-  stats: ReadonlyArray<{ label: string; value: string }>;
   quizIndex: number;
   selectedChoice: string | null;
   answers: Record<string, string>;

@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 const logoElephant = require('../../assets/funfanti-elephant.png');
@@ -20,7 +20,6 @@ type AuthFlowProps = {
   registerEmail: string;
   registerPassword: string;
   registerConfirmPassword: string;
-  registerName: string;
   authLoading: boolean;
   authError: string | null;
   onChangeLoginEmail: (value: string) => void;
@@ -28,7 +27,6 @@ type AuthFlowProps = {
   onChangeRegisterEmail: (value: string) => void;
   onChangeRegisterPassword: (value: string) => void;
   onChangeRegisterConfirmPassword: (value: string) => void;
-  onChangeRegisterName: (value: string) => void;
   onBackToIntro: () => void;
   onGoToLoginMethod: () => void;
   onGoToRegisterMethod: () => void;
@@ -46,7 +44,6 @@ export function AuthFlow({
   registerEmail,
   registerPassword,
   registerConfirmPassword,
-  registerName,
   authLoading,
   authError,
   onChangeLoginEmail,
@@ -54,7 +51,6 @@ export function AuthFlow({
   onChangeRegisterEmail,
   onChangeRegisterPassword,
   onChangeRegisterConfirmPassword,
-  onChangeRegisterName,
   onBackToIntro,
   onGoToLoginMethod,
   onGoToRegisterMethod,
@@ -64,17 +60,6 @@ export function AuthFlow({
   onSubmitLogin,
   onCompleteSuccess,
 }: AuthFlowProps) {
-  const showUnsupportedProvider = (provider: string) => {
-    if (provider === 'Password reset') {
-      Alert.alert(
-        'Reset Password',
-        'Password reset functionality is coming soon. Please contact us at ngokynam4924@gmail.com if you need immediate help accessing your account.'
-      );
-      return;
-    }
-    Alert.alert(`${provider} sign-in`, 'This backend currently supports email and password authentication only.');
-  };
-
   const renderLogo = () => (
     <View style={styles.logoBlock}>
       <Image source={logoElephant} style={styles.logoElephant} resizeMode="contain" />
@@ -118,12 +103,9 @@ export function AuthFlow({
 
           <View style={styles.methodStack}>
             {renderMethodButton(
-              isLoginMethod ? 'Login with E-mail or Phone number' : 'Register with E-mail or Phone number',
+              isLoginMethod ? 'Login with email' : 'Register with email',
               isLoginMethod ? onGoToLogin : onGoToRegister,
             )}
-            {renderMethodButton(isLoginMethod ? 'Login with Google' : 'Register with Google', () => showUnsupportedProvider('Google'))}
-            {renderMethodButton(isLoginMethod ? 'Login with Apple' : 'Register with Apple', () => showUnsupportedProvider('Apple'))}
-            {renderMethodButton(isLoginMethod ? 'Login with Facebook' : 'Register with Facebook', () => showUnsupportedProvider('Facebook'))}
           </View>
 
           <View style={styles.methodFooter}>
@@ -152,13 +134,8 @@ export function AuthFlow({
           <TextInput
             style={[styles.input, styles.inputActive]}
             value={registerEmail}
-            onChangeText={(value) => {
-              onChangeRegisterEmail(value);
-              if (!registerName) {
-                onChangeRegisterName(value.split('@')[0]);
-              }
-            }}
-            placeholder="john.doe@gmail.com"
+            onChangeText={onChangeRegisterEmail}
+            placeholder="Email address"
             placeholderTextColor="#7d7d7d"
             autoCapitalize="none"
             keyboardType="email-address"
@@ -209,7 +186,7 @@ export function AuthFlow({
             style={styles.input}
             value={loginEmail}
             onChangeText={onChangeLoginEmail}
-            placeholder="john.doe@gmail.com"
+            placeholder="Email address"
             placeholderTextColor="#7d7d7d"
             autoCapitalize="none"
             keyboardType="email-address"
@@ -232,9 +209,6 @@ export function AuthFlow({
           >
             {authLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.primaryButtonText}>Login</Text>}
           </Pressable>
-          <Pressable style={styles.secondaryLink} onPress={() => showUnsupportedProvider('Password reset')}>
-            <Text style={styles.secondaryLinkText}>Forget Password</Text>
-          </Pressable>
         </ScrollView>
       </View>
     );
@@ -249,11 +223,11 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white,
   },
   methodContainer: {
-    minHeight: 852,
+    flexGrow: 1,
     alignItems: 'center',
-    paddingTop: 109,
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 42,
+    paddingVertical: 40,
   },
   logoBlock: {
     alignItems: 'center',
@@ -299,7 +273,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   methodFooter: {
-    marginTop: 95,
+    marginTop: 36,
     alignItems: 'center',
     gap: 14,
   },
@@ -329,15 +303,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   formContainer: {
-    minHeight: 852,
+    flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 68,
+    paddingTop: 56,
     paddingBottom: 40,
   },
   loginFormContainer: {
-    minHeight: 852,
+    flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 68,
+    paddingTop: 56,
     paddingBottom: 40,
   },
   backButton: {
@@ -402,7 +376,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   legalText: {
-    marginTop: 219,
+    marginTop: 32,
     fontSize: 12,
     color: palette.black,
     lineHeight: 18,
@@ -412,16 +386,6 @@ const styles = StyleSheet.create({
   legalLink: {
     color: palette.primary,
     fontWeight: '700',
-  },
-  secondaryLink: {
-    marginTop: 25,
-    alignItems: 'center',
-  },
-  secondaryLinkText: {
-    color: palette.black,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
   },
   successScreen: {
     flex: 1,

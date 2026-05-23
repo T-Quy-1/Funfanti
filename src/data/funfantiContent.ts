@@ -5,7 +5,6 @@ export type ScreenKey =
   | 'onboarding-1'
   | 'onboarding-2'
   | 'onboarding-3'
-  | 'interests'
   | 'auth-select'
   | 'login-method'
   | 'register'
@@ -42,7 +41,10 @@ export type QuestionSetCard = {
   title: string;
   topic: string;
   subtitle: string;
+  description: string;
+  summary?: string;
   creatorName?: string;
+  creatorAvatarUrl?: string | null;
   progress: number;
   accent: string;
   artTone: string;
@@ -51,9 +53,11 @@ export type QuestionSetCard = {
   tags: string[];
   questionCount: number;
   avgRating: number;
+  reviewCount: number;
   sessionCount: number;
   isFeatured: boolean;
   isBookmarked?: boolean;
+  createdAt?: string;
 };
 
 export type QuestionSetSort = 'popular' | 'latest' | 'rating';
@@ -84,21 +88,10 @@ export const onboardingSlides = [
   },
   {
     key: 'onboarding-3' as const,
-    title: 'Enable seamless experiences',
+    title: 'Start from real question sets',
     description:
-      'To deliver your quick daily knowledge boosts, Funfanti needs permission to display over other apps and send notifications.',
+      'Create an account, explore available sets, save the ones you like, and track completed quiz attempts from your profile.',
   },
-];
-
-export const interests = [
-  'General Knowledge',
-  'English Vocabulary',
-  'Logical Math',
-  'World History',
-  'Science & Tech',
-  'Art & Culture',
-  'Philosophy',
-  'Around the World',
 ];
 
 export const questionSets: QuestionSetCard[] = [];
@@ -108,14 +101,6 @@ export const questionSetTags = Array.from(
 );
 
 export const quizQuestions: QuizQuestion[] = [];
-
-export const stats = [
-  { label: 'Questions today', value: '18' },
-  { label: 'Streak', value: '12 days' },
-  { label: 'Saved sets', value: '24' },
-];
-
-export const filterChips = ['Popular', 'New', 'My course', 'Science', 'History'];
 
 export const navItems = [
   { key: 'home', label: 'Home' },

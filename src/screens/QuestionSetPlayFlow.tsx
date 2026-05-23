@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -135,7 +135,6 @@ function ChoiceButton({
         {getChoiceLetter(choice, index)}
       </Text>
       <Text
-        numberOfLines={2}
         style={[
           styles.optionText,
           (state === 'correct' || state === 'wrong') && styles.optionTextInverse,
@@ -150,6 +149,7 @@ function ChoiceButton({
 
 export function QuestionSetDetailScreen({
   activeTab,
+  error,
   loading,
   questionSet,
   onBack,
@@ -157,6 +157,7 @@ export function QuestionSetDetailScreen({
   onTakeQuiz,
 }: {
   activeTab: AppTab;
+  error?: string | null;
   loading: boolean;
   questionSet?: QuestionSetCard | null;
   onBack: () => void;
@@ -216,14 +217,11 @@ export function QuestionSetDetailScreen({
           <View style={styles.creatorAvatar}>
             <Feather name="user" size={18} color={playColors.navy} />
           </View>
-          <Text style={styles.creatorName}>Funfanti's Team</Text>
+          <Text style={styles.creatorName}>{questionSet.creatorName ?? 'Creator unavailable'}</Text>
         </View>
         <Text style={styles.detailLead}>{questionSet.subtitle}</Text>
-        <Text style={styles.detailBody}>
-          Dive into a light and engaging starter quiz filled with fun facts. This set has{' '}
-          {questionSet.questionCount} questions and is designed as a quick way to learn the format,
-          pacing, and style before moving on to more challenging sets.
-        </Text>
+        <Text style={styles.detailBody}>{questionSet.description}</Text>
+        {error ? <Text style={styles.detailError}>{error}</Text> : null}
       </ScrollView>
 
       <View style={styles.detailActionWrap}>
@@ -256,6 +254,7 @@ export function QuestionSetQuizScreen({
   onSeeSummary,
   onSelectChoice,
   submitting,
+  submissionError,
 }: {
   question: QuizQuestion | null;
   questionIndex: number;
@@ -268,6 +267,7 @@ export function QuestionSetQuizScreen({
   onSeeSummary: () => void;
   onSelectChoice: (choiceId: string) => void;
   submitting: boolean;
+  submissionError?: string | null;
 }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -377,6 +377,7 @@ export function QuestionSetQuizScreen({
         <View style={[styles.feedbackSheet, selectedIsCorrect ? styles.feedbackCorrect : styles.feedbackWrong]}>
           <Text style={styles.feedbackTitle}>{feedbackTitle}</Text>
           <Text style={styles.feedbackCopy}>{feedbackCopy}</Text>
+          {submissionError ? <Text style={styles.feedbackError}>{submissionError}</Text> : null}
           {finalQuestion ? <Text style={styles.completionNote}>You have completed the Quiz, Great work!</Text> : null}
           <Pressable
             disabled={submitting}
@@ -419,7 +420,7 @@ export function QuestionSetSummaryScreen({
   const timeSeconds = Math.max(1, Math.round((quizSessionResult?.totalTimeMs ?? totalTimeMs) / 1000));
   const analyticsCopy = quizSessionResult?.id
     ? quizSessionResult.analyticsSummary
-    : "You're in the top 50% for quiz completion time.";
+    : 'Server analytics were not returned for this attempt.';
 
   return (
     <View style={styles.summaryPage}>
@@ -432,6 +433,7 @@ export function QuestionSetSummaryScreen({
         </View>
       </SafeAreaView>
 
+      <ScrollView contentContainerStyle={styles.summaryContent} showsVerticalScrollIndicator={false}>
       <View style={styles.summaryCard}>
         <Text style={styles.summarySetTitle}>{questionSet?.title ?? 'Starter Quiz'}</Text>
         <View style={styles.scoreRing}>
@@ -461,6 +463,7 @@ export function QuestionSetSummaryScreen({
           </Pressable>
         </View>
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -498,7 +501,7 @@ const styles = StyleSheet.create({
   detailContent: {
     paddingHorizontal: 18,
     paddingTop: 24,
-    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING + 76,
   },
   detailImage: {
     width: '100%',
@@ -578,6 +581,14 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '400',
     marginTop: 18,
+  },
+  detailError: {
+    color: '#B42318',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
   },
   detailActionWrap: {
     position: 'absolute',
@@ -809,6 +820,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 34,
   },
+  feedbackError: {
+    color: '#B42318',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 14,
+  },
   completionNote: {
     color: playColors.text,
     fontSize: 14,
@@ -843,6 +862,9 @@ const styles = StyleSheet.create({
   summaryPage: {
     flex: 1,
     backgroundColor: playColors.white,
+  },
+  summaryContent: {
+    paddingBottom: 32,
   },
   summaryHeader: {
     minHeight: 137,
@@ -919,9 +941,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'stretch',
-    paddingLeft: 42,
+    justifyContent: 'center',
     gap: 10,
     minHeight: 30,
+    flexWrap: 'wrap',
   },
   summaryMetricText: {
     color: playColors.text,
