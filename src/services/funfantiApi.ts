@@ -8,6 +8,18 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName?: string;
+  avatarUrl?: string | null;
+};
+
+export type AuthResponse = {
+  user: AuthUser;
+  accessToken: string;
+};
+
 type BootstrapPayload = {
   questionSets: typeof questionSets;
   quizQuestions: typeof quizQuestions;
@@ -40,7 +52,19 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     });
 
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+      let message = `Request failed with status ${response.status}`;
+      try {
+        const errorPayload = (await response.json()) as { message?: string | string[] };
+        if (Array.isArray(errorPayload.message)) {
+          message = errorPayload.message.join('\n');
+        } else if (errorPayload.message) {
+          message = errorPayload.message;
+        }
+      } catch {
+        // Keep the status-based fallback when the server does not return JSON.
+      }
+
+      throw new Error(message);
     }
 
     return (await response.json()) as T;
@@ -92,23 +116,15 @@ export const funfantiApi = {
     );
   },
   login: (email: string, password: string) =>
-    withFallback(
-      { accessToken: 'mock-token', email },
-      () =>
-        requestJson<{ accessToken: string; email: string }>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        }),
-    ),
+    requestJson<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
   register: (payload: { email: string; password: string; displayName: string }) =>
-    withFallback(
-      { accessToken: 'mock-token', email: payload.email },
-      () =>
-        requestJson<{ accessToken: string; email: string }>('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        }),
-    ),
+    requestJson<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   submitQuizSession: (payload: JsonRecord) =>
     withFallback(
       { score: 3, status: 'COMPLETED' },
@@ -118,7 +134,7 @@ export const funfantiApi = {
           body: JSON.stringify(payload),
         }),
     ),
-  updatePreferences: (payload: JsonRecord) =>
+  updatePreferences: (payload: JsonRecord, accessToken?: string | null) =>
     withFallback(
       { ok: true },
       () =>
@@ -126,7 +142,7 @@ export const funfantiApi = {
           method: 'PUT',
           body: JSON.stringify(payload),
           headers: {
-            Authorization: 'Bearer mock-token',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
     ),

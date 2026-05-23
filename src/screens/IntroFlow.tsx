@@ -1,15 +1,24 @@
-import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ArtBlock } from '../components/ArtBlock';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { colors } from '../theme/colors';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { onboardingSlides } from '../data/funfantiContent';
+import { colors } from '../theme/colors';
 import type { ScreenKey } from '../data/funfantiContent';
+
+const logoElephant = require('../../assets/funfanti-elephant.png');
+const logoWordmark = require('../../assets/funfanti-wordmark.png');
+
+const palette = {
+  primary: '#269D54',
+  black: '#020202',
+  blackSoft: '#161616',
+  white: '#FFFFFF',
+  selected: '#D3F1D9',
+  chip: '#EEF4C2',
+};
 
 type IntroFlowProps = {
   screen: ScreenKey;
   activeSlide: number;
-  selectedInterest: string;
+  selectedInterests: string[];
   interests: string[];
   onSelectInterest: (interest: string) => void;
   onGoToApp: () => void;
@@ -21,45 +30,74 @@ type IntroFlowProps = {
 export function IntroFlow({
   screen,
   activeSlide,
-  selectedInterest,
+  selectedInterests,
   interests,
   onSelectInterest,
   onGoToApp,
   onAdvanceOnboarding,
   onContinue,
-  onSetScreen,
 }: IntroFlowProps) {
+  const minimumInterestCount = 3;
+  const selectedInterestCount = selectedInterests.length;
+  const hasEnoughInterests = selectedInterestCount >= minimumInterestCount;
+  const remainingInterestCount = Math.max(minimumInterestCount - selectedInterestCount, 0);
+
+  const renderLogo = (variant: 'splash' | 'onboarding' = 'onboarding') => (
+    <View style={variant === 'splash' ? styles.splashLogo : styles.onboardingLogo}>
+      <Image
+        source={logoElephant}
+        style={variant === 'splash' ? styles.splashElephant : styles.onboardingElephant}
+        resizeMode="contain"
+      />
+      <Image
+        source={logoWordmark}
+        style={variant === 'splash' ? styles.splashWordmark : styles.onboardingWordmark}
+        resizeMode="contain"
+      />
+    </View>
+  );
+
+  const renderDots = () => (
+    <View style={styles.dotRow}>
+      {onboardingSlides.map((item, index) => (
+        <View key={item.key} style={[styles.dot, index === activeSlide && styles.dotActive]} />
+      ))}
+    </View>
+  );
+
   if (screen === 'splash') {
     return (
-      <View style={styles.splashScreen}>
-        <View style={styles.splashGlowTop} />
-        <View style={styles.splashGlowBottom} />
-        <View style={styles.splashCenter}>
-          <ArtBlock tone={colors.brandGreen} variant="hero" />
-          <Text style={styles.splashWordmark}>Funfanti</Text>
-          <Pressable style={styles.splashLink} onPress={onGoToApp}>
-            <Text style={styles.splashLinkText}>Enter app</Text>
-          </Pressable>
-        </View>
-      </View>
+      <Pressable style={styles.splashScreen} onPress={onGoToApp}>
+        {renderLogo('splash')}
+        <ActivityIndicator color="rgba(255,255,255,0.75)" size="large" style={styles.splashLoader} />
+      </Pressable>
     );
   }
 
   if (screen === 'interests') {
     return (
-      <SafeAreaView style={styles.page}>
+      <View style={styles.page}>
         <ScrollView contentContainerStyle={styles.interestContainer}>
-          <ScreenHeader
-            title="What interests you?"
-            subtitle="Select a learning theme to personalize your feed."
-          />
-          <View style={styles.interestGrid}>
+          <Text style={styles.interestTitle}>What interests you?</Text>
+          <Text style={styles.interestSubtitle}>
+            Pick at least 3 topics to get started. You can always change these or create your own later.
+          </Text>
+          <Text style={[styles.interestRequirement, hasEnoughInterests && styles.interestRequirementReady]}>
+            {hasEnoughInterests ? `${selectedInterestCount} selected` : `Pick ${remainingInterestCount} more`}
+          </Text>
+
+          <View style={styles.interestList}>
             {interests.map((interest) => {
-              const active = selectedInterest === interest;
+              const active = selectedInterests.includes(interest);
               return (
                 <Pressable
                   key={interest}
-                  style={[styles.interestChip, active && styles.interestChipActive]}
+                  accessibilityState={{ selected: active }}
+                  style={({ pressed }) => [
+                    styles.interestChip,
+                    { backgroundColor: active ? '#4F46E5' : '#F3F4F6' },
+                    pressed && styles.pressed,
+                  ]}
                   onPress={() => onSelectInterest(interest)}
                 >
                   <Text style={[styles.interestChipText, active && styles.interestChipTextActive]}>
@@ -69,32 +107,33 @@ export function IntroFlow({
               );
             })}
           </View>
-          <View style={styles.noteCard}>
-            <Text style={styles.noteTitle}>Your feed starts with {selectedInterest}</Text>
-            <Text style={styles.noteText}>
-              We’ll prioritize sets and reminders around your chosen interest for quicker daily
-              learning.
-            </Text>
+
+          <View style={styles.interestActionRow}>
+            <Pressable
+              accessibilityState={{ disabled: !hasEnoughInterests }}
+              disabled={!hasEnoughInterests}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                !hasEnoughInterests && styles.primaryButtonDisabled,
+                pressed && hasEnoughInterests && styles.pressed,
+              ]}
+              onPress={onContinue}
+            >
+              <Text style={styles.primaryButtonText}>Next</Text>
+            </Pressable>
           </View>
-          <PrimaryButton label="Continue" onPress={onContinue} />
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const slide = onboardingSlides[activeSlide];
+  const slide = onboardingSlides[activeSlide] ?? onboardingSlides[0];
 
   return (
-    <SafeAreaView style={styles.page}>
+    <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.onboardingContainer}>
-        <View style={styles.heroMark}>
-          <ArtBlock tone={colors.brandGreenSoft} variant="hero" />
-        </View>
-        <View style={styles.dotRow}>
-          {onboardingSlides.map((item, index) => (
-            <View key={item.key} style={[styles.dot, index === activeSlide && styles.dotActive]} />
-          ))}
-        </View>
+        {renderLogo('onboarding')}
+        {renderDots()}
         <Text style={styles.onboardingTitle}>{slide.title}</Text>
         <View style={styles.onboardingActions}>
           <Pressable
@@ -111,97 +150,90 @@ export function IntroFlow({
           </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: palette.white,
   },
   splashScreen: {
     flex: 1,
-    backgroundColor: colors.brandGreen,
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
-  splashGlowTop: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 260,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    top: -40,
-    right: -80,
-  },
-  splashGlowBottom: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 300,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    bottom: -90,
-    left: -100,
-  },
-  splashCenter: {
+  splashLogo: {
     alignItems: 'center',
-    paddingHorizontal: 24,
+    width: 344,
+    height: 382,
+    marginTop: 88,
+  },
+  splashElephant: {
+    width: 288,
+    height: 207,
   },
   splashWordmark: {
-    color: '#fffbe7',
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    marginTop: 16,
+    width: 343,
+    height: 229,
+    marginTop: -50,
   },
-  splashLink: {
-    marginTop: 18,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  splashLinkText: {
-    color: colors.surface,
-    fontWeight: '600',
-    fontSize: 15,
-    letterSpacing: 0.2,
+  splashLoader: {
+    marginTop: 0,
   },
   onboardingContainer: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 32,
-    justifyContent: 'center',
-  },
-  heroMark: {
+    minHeight: 852,
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 29,
+    paddingTop: 142,
+    paddingBottom: 31,
+  },
+  onboardingLogo: {
+    alignItems: 'center',
+    width: 236,
+    height: 263,
+  },
+  onboardingElephant: {
+    width: 197,
+    height: 141,
+  },
+  onboardingWordmark: {
+    width: 233,
+    height: 155,
+    marginTop: -35,
   },
   dotRow: {
     flexDirection: 'row',
-    alignSelf: 'center',
-    marginBottom: 28,
+    gap: 5,
+    marginTop: 0,
+    marginBottom: 45,
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 6,
-    backgroundColor: '#c0c7ba',
-    marginHorizontal: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: palette.black,
+    backgroundColor: palette.white,
   },
   dotActive: {
-    width: 18,
-    backgroundColor: colors.brand,
+    backgroundColor: palette.black,
   },
   onboardingTitle: {
+    width: 321,
+    color: palette.black,
+    fontSize: 36,
+    lineHeight: 48,
+    fontWeight: '400',
     textAlign: 'center',
-    fontSize: 28,
-    lineHeight: 42,
-    fontWeight: '600',
-    color: '#111827',
   },
   onboardingActions: {
+    position: 'absolute',
+    left: 29,
+    right: 29,
+    bottom: 31,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
@@ -225,11 +257,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 12,
     alignItems: 'center',
+    flex: 1,
   },
   primaryButtonText: {
     color: colors.surface,
     fontWeight: '700',
     fontSize: 14,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.55,
   },
   interestContainer: {
     flexGrow: 1,
@@ -264,23 +300,43 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  noteCard: {
-    marginTop: 18,
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 0,
-    marginBottom: 18,
+  interestTitle: {
+    color: palette.black,
+    fontSize: 30,
+    lineHeight: 40,
+    fontWeight: '400',
+    textAlign: 'center',
   },
-  noteTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 8,
+  interestSubtitle: {
+    alignSelf: 'center',
+    width: 321,
+    marginTop: 8,
+    color: palette.black,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
+    textAlign: 'center',
   },
-  noteText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    lineHeight: 21,
+  interestRequirement: {
+    marginTop: 10,
+    color: '#B42318',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  interestRequirementReady: {
+    color: palette.primary,
+  },
+  interestList: {
+    gap: 13,
+    marginTop: 19,
+  },
+  interestActionRow: {
+    alignItems: 'flex-end',
+    marginTop: 21,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

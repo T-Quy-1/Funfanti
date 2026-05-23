@@ -5,6 +5,7 @@ export type ScreenKey =
   | 'onboarding-3'
   | 'interests'
   | 'auth-select'
+  | 'login-method'
   | 'register'
   | 'login'
   | 'auth-success'
@@ -46,19 +47,19 @@ export const onboardingSlides = [
     key: 'onboarding-1' as const,
     title: 'Welcome to Funfanti',
     description:
-      'Transform short smartphone moments into quick, meaningful learning experiences. Built for 10 to 15 second bursts of focus.',
+      'Transform short smartphone moments into quick, meaningful learning. Answer bite-sized questions in just 10 to 15 seconds.',
   },
   {
     key: 'onboarding-2' as const,
     title: 'Learn without the effort',
     description:
-      'Funfanti gives you bite-sized questions, visual feedback, and subtle reinforcement while you move through your day.',
+      'Funfanti pops up briefly during your day. Answer a quick question, reinforce your memory, and get right back to what you were doing.',
   },
   {
     key: 'onboarding-3' as const,
     title: 'Enable seamless experiences',
     description:
-      'Save question sets, track progress, and surface smart reminders for the right learning moment.',
+      'To deliver your quick daily knowledge boosts, Funfanti needs permission to display over other apps and send notifications.',
   },
 ];
 
