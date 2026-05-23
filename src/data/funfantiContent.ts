@@ -53,6 +53,7 @@ export type QuestionSetCard = {
   avgRating: number;
   sessionCount: number;
   isFeatured: boolean;
+  isBookmarked?: boolean;
 };
 
 export type QuestionSetSort = 'popular' | 'latest' | 'rating';

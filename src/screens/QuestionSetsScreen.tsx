@@ -469,9 +469,6 @@ export function QuestionSetsScreen({
       </View>
 
       <ScrollView
-        alwaysBounceVertical={false}
-        bounces={false}
-        overScrollMode="never"
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -522,9 +519,7 @@ export function QuestionSetsScreen({
           >
             <Animated.View
               style={[styles.filterSheet, { transform: [{ translateY: sheetTranslateY }] }]}
-              {...sheetPanResponder.panHandlers}
             >
-              <View style={styles.sheetHandle} />
               <View style={styles.sheetHeader}>
                 <View style={styles.sheetTitleRow}>
                   <Text style={styles.sheetTitle}>Filters</Text>
@@ -539,6 +534,7 @@ export function QuestionSetsScreen({
                 contentContainerStyle={styles.sheetContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
+                scrollEnabled={false}
               >
               <View style={styles.filterSection}>
                 <View style={styles.filterTitleRow}>

@@ -11,6 +11,7 @@ import {
 import type { ImageSourcePropType } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { BottomNav } from '../components';
+import { BOTTOM_NAV_CONTENT_PADDING, BOTTOM_NAV_HEIGHT, BOTTOM_NAV_BOTTOM_OFFSET } from '../components/BottomNav';
 import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
 import type { QuizSessionResult } from '../services/funfantiApi';
 import type { AppTab } from './screenTypes';
@@ -142,6 +143,7 @@ function ChoiceButton({
       >
         {choice.label}
       </Text>
+      <View style={{ width: 38 }} />
     </Pressable>
   );
 }
@@ -165,30 +167,34 @@ export function QuestionSetDetailScreen({
 
   if (!questionSet) {
     return (
-      <SafeAreaView style={styles.page}>
+      <View style={styles.page}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+          <View style={styles.detailHeader}>
+            <Pressable style={styles.detailBackButton} onPress={onBack}>
+              <Feather name="chevron-left" size={24} color={playColors.white} />
+            </Pressable>
+            <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
+          </View>
+        </SafeAreaView>
+        <View style={styles.emptyDetail}>
+          <Text style={styles.emptyTitle}>Question set unavailable</Text>
+          <Text style={styles.emptyBody}>Return to Question Sets and choose another quiz.</Text>
+        </View>
+        <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.page}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
         <View style={styles.detailHeader}>
           <Pressable style={styles.detailBackButton} onPress={onBack}>
             <Feather name="chevron-left" size={24} color={playColors.white} />
           </Pressable>
           <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
         </View>
-        <View style={styles.emptyDetail}>
-          <Text style={styles.emptyTitle}>Question set unavailable</Text>
-          <Text style={styles.emptyBody}>Return to Question Sets and choose another quiz.</Text>
-        </View>
-        <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
       </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.page}>
-      <View style={styles.detailHeader}>
-        <Pressable style={styles.detailBackButton} onPress={onBack}>
-          <Feather name="chevron-left" size={24} color={playColors.white} />
-        </Pressable>
-        <Text style={styles.detailHeaderTitle}>Quiz Detail</Text>
-      </View>
 
       <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
         {imageSource ? (
@@ -234,7 +240,7 @@ export function QuestionSetDetailScreen({
         </Pressable>
       </View>
       <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -270,24 +276,33 @@ export function QuestionSetQuizScreen({
       return undefined;
     }
 
-    const timerId = setInterval(() => setNow(Date.now()), 500);
+    setNow(Date.now());
+    const timerId = setInterval(() => {
+      const currentNow = Date.now();
+      setNow(currentNow);
+      if (currentNow - questionStartedAtMs >= QUESTION_TIME_LIMIT_MS) {
+        onSelectChoice('TIMEOUT');
+      }
+    }, 500);
     return () => clearInterval(timerId);
-  }, [selectedChoice, question?.id]);
+  }, [selectedChoice, question?.id, questionStartedAtMs, onSelectChoice]);
 
   if (!question) {
     return (
-      <SafeAreaView style={styles.quizPage}>
-        <View style={styles.detailHeader}>
-          <Pressable style={styles.detailBackButton} onPress={onBack}>
-            <Feather name="chevron-left" size={24} color={playColors.white} />
-          </Pressable>
-          <Text style={styles.detailHeaderTitle}>Quiz</Text>
-        </View>
+      <View style={styles.quizPage}>
+        <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+          <View style={styles.detailHeader}>
+            <Pressable style={styles.detailBackButton} onPress={onBack}>
+              <Feather name="chevron-left" size={24} color={playColors.white} />
+            </Pressable>
+            <Text style={styles.detailHeaderTitle}>Quiz</Text>
+          </View>
+        </SafeAreaView>
         <View style={styles.emptyDetail}>
           <Text style={styles.emptyTitle}>No quiz questions yet</Text>
           <Text style={styles.emptyBody}>Load a question set from the backend to begin.</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -300,26 +315,33 @@ export function QuestionSetQuizScreen({
   const imageSource = resolveQuestionImage(question);
   const finalQuestion = questionIndex + 1 >= totalQuestions;
 
+  const isTimeout = selectedChoice === 'TIMEOUT';
   const feedbackTitle = selectedIsCorrect
     ? finalQuestion
       ? 'Spot On!'
       : 'Congratulations!'
-    : finalQuestion
-      ? 'Not Quite!'
-      : 'Tough Luck!';
-  const feedbackCopy = selectedIsCorrect
-    ? question.explanation
-    : `${question.explanation}`;
+    : isTimeout
+      ? "Time's up!"
+      : finalQuestion
+        ? 'Not Quite!'
+        : 'Tough Luck!';
+
+  const correctChoiceLabel = question.choices.find(c => c.correct)?.label;
+  const feedbackCopy = isTimeout
+    ? `Correct answer: ${correctChoiceLabel}\n\n${question.explanation}`
+    : question.explanation;
 
   return (
-    <SafeAreaView style={styles.quizPage}>
-      <PlayHeader
-        completedCount={completedCount}
-        onBack={onBack}
-        questionIndex={questionIndex}
-        secondsRemaining={secondsRemaining}
-        totalQuestions={totalQuestions}
-      />
+    <View style={styles.quizPage}>
+      <SafeAreaView style={{ backgroundColor: playColors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+        <PlayHeader
+          completedCount={completedCount}
+          onBack={onBack}
+          questionIndex={questionIndex}
+          secondsRemaining={secondsRemaining}
+          totalQuestions={totalQuestions}
+        />
+      </SafeAreaView>
 
       <ScrollView
         contentContainerStyle={[styles.quizContent, answered && styles.quizContentAnswered]}
@@ -373,7 +395,7 @@ export function QuestionSetQuizScreen({
           </Pressable>
         </View>
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -400,13 +422,15 @@ export function QuestionSetSummaryScreen({
     : "You're in the top 50% for quiz completion time.";
 
   return (
-    <SafeAreaView style={styles.summaryPage}>
-      <View style={styles.summaryHeader}>
-        <View style={styles.summaryHeaderRow}>
-          <Feather name="star" size={24} color="#D6F300" />
-          <Text style={styles.summaryHeaderTitle}>Summary</Text>
+    <View style={styles.summaryPage}>
+      <SafeAreaView style={{ backgroundColor: playColors.navy, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.summaryHeaderRow}>
+            <Feather name="star" size={24} color="#D6F300" />
+            <Text style={styles.summaryHeaderTitle}>Summary</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       <View style={styles.summaryCard}>
         <Text style={styles.summarySetTitle}>{questionSet?.title ?? 'Starter Quiz'}</Text>
@@ -437,7 +461,7 @@ export function QuestionSetSummaryScreen({
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -474,7 +498,7 @@ const styles = StyleSheet.create({
   detailContent: {
     paddingHorizontal: 18,
     paddingTop: 24,
-    paddingBottom: 190,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   detailImage: {
     width: '100%',
@@ -559,7 +583,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 116,
+    bottom: BOTTOM_NAV_HEIGHT + BOTTOM_NAV_BOTTOM_OFFSET + 8,
   },
   takeQuizButton: {
     height: 56,
@@ -581,7 +605,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   emptyTitle: {
     color: playColors.navy,
@@ -689,7 +713,7 @@ const styles = StyleSheet.create({
   },
   quizContentAnswered: {
     paddingTop: 38,
-    paddingBottom: 390,
+    paddingBottom: 180,
   },
   questionPrompt: {
     color: playColors.navy,
@@ -754,7 +778,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: 316,
+    minHeight: 220,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 2,
