@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from '../components';
+import { BottomNav } from '../components';
+import { BOTTOM_NAV_CONTENT_PADDING, BOTTOM_NAV_HEIGHT, BOTTOM_NAV_BOTTOM_OFFSET } from '../components/BottomNav';
 import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
 import type { QuizSessionResult } from '../services/funfantiApi';
 import type { AppTab } from './screenTypes';
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: Math.max(16, BOTTOM_NAV_CONTENT_PADDING - 20),
+    bottom: BOTTOM_NAV_HEIGHT + BOTTOM_NAV_BOTTOM_OFFSET + 8,
   },
   takeQuizButton: {
     height: 56,
