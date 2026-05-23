@@ -135,6 +135,7 @@ export function IntroFlow({
         {renderLogo('onboarding')}
         {renderDots()}
         <Text style={styles.onboardingTitle}>{slide.title}</Text>
+        <Text style={styles.onboardingText}>{slide.description}</Text>
         <View style={styles.onboardingActions}>
           <Pressable
             style={styles.linkButton}
@@ -226,6 +227,15 @@ const styles = StyleSheet.create({
     color: palette.black,
     fontSize: 36,
     lineHeight: 48,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  onboardingText: {
+    width: 321,
+    marginTop: 16,
+    color: palette.black,
+    fontSize: 18,
+    lineHeight: 27,
     fontWeight: '400',
     textAlign: 'center',
   },

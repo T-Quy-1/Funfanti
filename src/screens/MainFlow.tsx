@@ -5,29 +5,57 @@ import { Feather } from '@expo/vector-icons';
 import { colors } from "../theme/colors";
 import { spacing, borderRadius, shadows, gradients } from "../theme/spacing";
 import type { AppTab } from "./screenTypes";
-import type { QuestionSetCard, QuizQuestion } from "../data/funfantiContent";
+import { QuestionSetsScreen } from './QuestionSetsScreen';
+import {
+  QuestionSetDetailScreen,
+  QuestionSetQuizScreen,
+  QuestionSetSummaryScreen,
+} from './QuestionSetPlayFlow';
+import type { QuestionSetCard, QuestionSetFilters, QuizQuestion } from "../data/funfantiContent";
+import type { QuizSessionResult } from "../services/funfantiApi";
 
 type MainFlowProps = {
-  screen: "home" | "discover" | "quiz" | "result" | "profile";
+  screen: "home" | "my-quizzes" | "discover" | "question-detail" | "quiz" | "result" | "profile";
   registerName: string;
+  registerEmail: string;
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
   onOpenDiscover: () => void;
   onStartQuiz: () => void;
   onBackToHome: () => void;
+  activeQuestionSet: QuestionSetCard | null;
   questionSets: QuestionSetCard[];
+  questionSetTags: string[];
+  questionSetsLoading: boolean;
+  questionSetsError: string | null;
+  questionSetSearchQuery: string;
+  questionSetFilters: QuestionSetFilters;
+  bookmarkedQuestionSetIds: string[];
+  questionSetActionLoadingId: string | null;
   quizQuestions: QuizQuestion[];
   filterChips: string[];
   stats: ReadonlyArray<{ label: string; value: string }>;
   quizIndex: number;
   selectedChoice: string | null;
-  scoreSummary: { answered: number; total: number; accuracy: number };
-  currentQuestion: QuizQuestion;
+  scoreSummary: { answered: number; correct: number; total: number; accuracy: number };
+  currentQuestion: QuizQuestion | null;
+  questionStartedAtMs: number;
+  questionDurations: Record<string, number>;
+  quizTotalTimeMs: number;
+  quizSessionResult: QuizSessionResult | null;
+  quizSubmissionLoading: boolean;
   selectedInterest: string;
   themeEnabled: boolean;
   hapticsEnabled: boolean;
   notificationOverlay: boolean;
   onSelectChoice: (choiceId: string) => void;
+  onAdvanceQuiz: () => void;
+  onSeeQuizSummary: () => void;
+  onTakeQuestionSetQuiz: () => void;
+  onChangeQuestionSetSearch: (value: string) => void;
+  onApplyQuestionSetFilters: (filters: QuestionSetFilters) => void;
+  onStartQuestionSet: (questionSet: QuestionSetCard) => void;
+  onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
   onContinueHome: () => void;
   onUpdateTheme: (value: boolean) => void;
@@ -35,16 +63,62 @@ type MainFlowProps = {
   onUpdateNotificationOverlay: (value: boolean) => void;
 };
 
+const palette = {
+  primary: '#269D54',
+  navy: '#081245',
+  black: '#161616',
+  ink: '#24252C',
+  white: '#FFFFFF',
+  peach: '#FED19C',
+  mint: '#D3F1D9',
+  lime: '#EEF4C2',
+  aqua: 'rgba(43,217,222,0.5)',
+  coral: '#FF8080',
+  softGreen: 'rgba(56,222,144,0.5)',
+  page: '#FFFFFF',
+  muted: '#5F6672',
+  line: '#E8EDF0',
+};
+
+const courseCardColors = [palette.peach, palette.mint, palette.lime, palette.aqua, palette.coral];
+const strictScrollProps = {
+  alwaysBounceVertical: false,
+  bounces: false,
+  overScrollMode: 'never' as const,
+};
+const strictHorizontalScrollProps = {
+  alwaysBounceHorizontal: false,
+  bounces: false,
+  overScrollMode: 'never' as const,
+};
+
+const quizDates = [
+  { month: 'May', day: '23', weekDay: 'Fri' },
+  { month: 'May', day: '24', weekDay: 'Sat' },
+  { month: 'May', day: '25', weekDay: 'Sun', active: true },
+  { month: 'May', day: '26', weekDay: 'Mon' },
+  { month: 'May', day: '27', weekDay: 'Tue' },
+];
+
 export function MainFlow(props: MainFlowProps) {
   const {
     screen,
     registerName,
+    registerEmail,
     activeTab,
     onSelectTab,
     onOpenDiscover,
     onStartQuiz,
     onBackToHome,
+    activeQuestionSet,
     questionSets,
+    questionSetTags,
+    questionSetsLoading,
+    questionSetsError,
+    questionSetSearchQuery,
+    questionSetFilters,
+    bookmarkedQuestionSetIds,
+    questionSetActionLoadingId,
     quizQuestions,
     filterChips,
     stats,
@@ -52,11 +126,23 @@ export function MainFlow(props: MainFlowProps) {
     selectedChoice,
     scoreSummary,
     currentQuestion,
+    questionStartedAtMs,
+    questionDurations,
+    quizTotalTimeMs,
+    quizSessionResult,
+    quizSubmissionLoading,
     selectedInterest,
     themeEnabled,
     hapticsEnabled,
     notificationOverlay,
     onSelectChoice,
+    onAdvanceQuiz,
+    onSeeQuizSummary,
+    onTakeQuestionSetQuiz,
+    onChangeQuestionSetSearch,
+    onApplyQuestionSetFilters,
+    onStartQuestionSet,
+    onToggleQuestionSetBookmark,
     onRetryQuiz,
     onContinueHome,
     onUpdateTheme,
@@ -64,8 +150,20 @@ export function MainFlow(props: MainFlowProps) {
     onUpdateNotificationOverlay,
   } = props;
 
+  const displayName = registerName.trim() || 'Funfanti Learner';
+  const displayEmail = registerEmail.trim() || 'learner@funfanti.app';
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   const truncateText = (value: string, maxLength = 30) =>
     value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
+
+  const recommendedQuestionSets = questionSets.slice(0, 6);
+  const myQuizSets = questionSets.slice(0, 4);
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -256,7 +354,68 @@ export function MainFlow(props: MainFlowProps) {
     </SafeAreaView>
   );
 
+  const renderQuestionDetail = () => {
+    if (!activeQuestionSet) {
+      return null;
+    }
+
+    return (
+      <QuestionSetDetailScreen
+        activeTab={activeTab}
+        loading={questionSetActionLoadingId === activeQuestionSet.id}
+        questionSet={activeQuestionSet}
+        onBack={onBackToHome}
+        onSelectTab={onSelectTab}
+        onTakeQuiz={onTakeQuestionSetQuiz}
+      />
+    );
+  };
+
+  const renderMyQuizzes = () => (
+    <SafeAreaView style={styles.page}>
+      <ScrollView contentContainerStyle={styles.appContent}>
+        <ScreenHeader title="My Quizzes" subtitle="Continue from where you left off." />
+
+        <View style={styles.statsRow}>
+          <StatCard
+            title="Saved sets"
+            value={`${myQuizSets.length}`}
+            iconName="bookmark"
+            toneIndex={0}
+            accentColor={colors.brand}
+            textColor="#111827"
+          />
+          <StatCard
+            title="Completed"
+            value={`${questionSets.filter((set) => set.progress >= 1).length}`}
+            iconName="check-circle"
+            toneIndex={1}
+            accentColor={colors.brand}
+            textColor="#111827"
+          />
+        </View>
+
+        {myQuizSets.map((set, index) => (
+          <EnhancedCard
+            key={set.id}
+            title={set.title}
+            subtitle={set.topic}
+            description={set.subtitle}
+            backgroundColor={courseCardColors[index % courseCardColors.length]}
+            imageUrl={set.imageUrl}
+            badge={`${Math.round(set.progress * 100)}%`}
+            onPress={() => onStartQuestionSet(set)}
+            size="md"
+            style={styles.myQuizCard}
+          />
+        ))}
+      </ScrollView>
+      {renderBottomNav()}
+    </SafeAreaView>
+  );
+
   const renderQuiz = () => (
+    currentQuestion ? (
     <SafeAreaView style={styles.page}>
       <ScrollView contentContainerStyle={styles.quizContainer}>
         <View style={styles.quizTopRow}>
@@ -302,11 +461,12 @@ export function MainFlow(props: MainFlowProps) {
         </View>
       </ScrollView>
     </SafeAreaView>
+    ) : null
   );
 
   const renderResult = () => {
     const percent = Math.round((scoreSummary.answered / scoreSummary.total) * 100);
-    const compare = percent >= 80 ? "Top 10%" : percent >= 60 ? "Top 30%" : "Top 50%";
+    const compare = percent >= 80 ? 'Top 10%' : percent >= 60 ? 'Top 30%' : 'Top 50%';
 
     return (
       <SafeAreaView style={styles.page}>
@@ -335,7 +495,7 @@ export function MainFlow(props: MainFlowProps) {
           </View>
           <View style={styles.feedbackCard}>
             <Text style={styles.feedbackTitle}>
-              {percent >= 80 ? "Outstanding" : percent >= 60 ? "Nice work" : "Keep going"}
+              {percent >= 80 ? 'Outstanding' : percent >= 60 ? 'Nice work' : 'Keep going'}
             </Text>
             <Text style={styles.feedbackText}>
               Funfanti surfaces the next best set based on your performance so your next session
@@ -357,68 +517,110 @@ export function MainFlow(props: MainFlowProps) {
   };
 
   const renderProfile = () => (
-    <SafeAreaView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.appContent}>
-        <ScreenHeader title="Profile" subtitle="Your settings and progress in one place." />
-        <View style={styles.profileHero}>
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>JD</Text>
+    <View style={styles.page}>
+      <SafeAreaView style={styles.profileTopSafeArea}>
+        <View style={styles.profileTopStrip} />
+      </SafeAreaView>
+      <ScrollView
+        {...strictScrollProps}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.profileContent}
+      >
+        <View style={styles.profileHeroCompact}>
+          <View style={styles.figmaProfileAvatar}>
+            <Feather name="user" size={36} color={palette.black} />
           </View>
-          <View style={styles.profileHeroText}>
-            <Text style={styles.profileName}>John Doe</Text>
-            <Text style={styles.profileEmail}>john.doe@gmail.com</Text>
+          <Text style={styles.figmaProfileName}>{displayName}</Text>
+          <Text style={styles.figmaProfileEmail}>{displayEmail}</Text>
+        </View>
+
+        <View style={styles.figmaMenuSection}>
+          <Text style={styles.figmaMenuHeading}>My profile</Text>
+          <View style={styles.figmaMenuStack}>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Edit profile</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Avatar upload</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Bookmarks</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Activity history</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
           </View>
         </View>
 
-        <View style={styles.settingsCard}>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Theme</Text>
-              <Text style={styles.settingSubtitle}>Match your device appearance</Text>
+        <View style={styles.figmaMenuSection}>
+          <Text style={styles.figmaMenuHeading}>Settings</Text>
+          <View style={styles.figmaMenuStack}>
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Notification/Overlay</Text>
+              <Switch
+                value={notificationOverlay}
+                onValueChange={onUpdateNotificationOverlay}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={notificationOverlay ? palette.primary : palette.white}
+              />
             </View>
-            <Switch value={themeEnabled} onValueChange={onUpdateTheme} />
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Haptics & Sound</Text>
+              <Switch
+                value={hapticsEnabled}
+                onValueChange={onUpdateHaptics}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={hapticsEnabled ? palette.primary : palette.white}
+              />
+            </View>
+            <View style={styles.figmaToggleRow}>
+              <Text style={styles.figmaMenuText}>Theme</Text>
+              <Switch
+                value={themeEnabled}
+                onValueChange={onUpdateTheme}
+                trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+                thumbColor={themeEnabled ? palette.primary : palette.white}
+              />
+            </View>
+            <View style={styles.figmaMenuRow}>
+              <Text style={styles.figmaMenuText}>Notification schedules</Text>
+              <Feather name="chevron-right" size={24} color={palette.navy} />
+            </View>
           </View>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Haptics</Text>
-              <Text style={styles.settingSubtitle}>Light feedback on quiz answers</Text>
-            </View>
-            <Switch value={hapticsEnabled} onValueChange={onUpdateHaptics} />
-          </View>
-          <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Notification overlay</Text>
-              <Text style={styles.settingSubtitle}>Show lock-screen reminders</Text>
-            </View>
-            <Switch value={notificationOverlay} onValueChange={onUpdateNotificationOverlay} />
-          </View>
-        </View>
-
-        <View style={styles.statsGrid}>
-          {stats.map((item) => (
-            <View key={item.label} style={styles.profileStatCard}>
-              <Text style={styles.profileStatValue}>{item.value}</Text>
-              <Text style={styles.profileStatLabel}>{item.label}</Text>
-            </View>
-          ))}
         </View>
       </ScrollView>
       {renderBottomNav()}
-    </SafeAreaView>
+    </View>
   );
 
-  if (screen === "result") {
+  if (screen === 'result') {
     return renderResult();
   }
 
+  if (screen === 'question-detail') {
+    return renderQuestionDetail();
+  }
+
+  if (screen === 'quiz') {
+    return renderQuiz();
+  }
+
+  if (screen === 'my-quizzes') {
+    return renderMyQuizzes();
+  }
+
   switch (activeTab) {
-    case "home":
+    case 'home':
       return renderHome();
-    case "discover":
+    case 'discover':
       return renderDiscover();
-    case "quiz":
-      return renderQuiz();
-    case "profile":
+    case 'quiz':
+      return renderMyQuizzes();
+    case 'profile':
       return renderProfile();
     default:
       return renderHome();
@@ -429,6 +631,92 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  profileTopSafeArea: {
+    backgroundColor: palette.primary,
+  },
+  profileTopStrip: {
+    height: 42,
+    backgroundColor: palette.primary,
+  },
+  profileContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: spacing.xxl,
+  },
+  myQuizCard: {
+    marginBottom: spacing.md,
+  },
+  profileHeroCompact: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  figmaProfileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: palette.lime,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 11,
+  },
+  figmaProfileName: {
+    color: palette.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  figmaProfileEmail: {
+    color: palette.navy,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  figmaMenuSection: {
+    marginBottom: 26,
+  },
+  figmaMenuHeading: {
+    color: palette.navy,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  figmaMenuStack: {
+    gap: 12,
+  },
+  figmaMenuRow: {
+    minHeight: 54,
+    borderRadius: 360,
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+    paddingLeft: 20,
+    paddingRight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  figmaToggleRow: {
+    minHeight: 54,
+    borderRadius: 360,
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+    paddingLeft: 20,
+    paddingRight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  figmaMenuText: {
+    flexShrink: 1,
+    color: palette.navy,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
   },
   appContent: {
     paddingHorizontal: spacing.lg,

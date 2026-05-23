@@ -8,7 +8,7 @@ interface EnhancedCardProps {
   title?: string;
   subtitle?: string;
   description?: string;
-  gradientColors?: string[];
+  gradientColors?: readonly [string, string, ...string[]];
   backgroundColor?: string;
   toneIndex?: number;
   isFeatured?: boolean;
@@ -59,7 +59,7 @@ export function EnhancedCard({
     : backgroundColor ?? pastelPalette[toneIndex % pastelPalette.length];
   const resolvedTextColor = isFeatured ? '#FFFFFF' : '#111827';
   const resolvedMutedColor = isFeatured ? 'rgba(255,255,255,0.8)' : '#9CA3AF';
-  const resolvedGradient = gradientColors ?? (isFeatured ? ['#4F46E5', '#22D3EE'] : undefined);
+  const resolvedGradient = gradientColors ?? (isFeatured ? ['#4F46E5', '#22D3EE'] as const : undefined);
 
   const containerStyle = {
     padding: paddingMap[size],
