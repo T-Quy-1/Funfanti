@@ -3,6 +3,9 @@ import { Feather } from '@expo/vector-icons';
 
 const primary = '#269D54';
 const surface = '#FFFFFF';
+export const BOTTOM_NAV_HEIGHT = 76;
+export const BOTTOM_NAV_BOTTOM_OFFSET = 20;
+export const BOTTOM_NAV_CONTENT_PADDING = 168;
 
 type BottomNavProps = {
   activeTab: 'home' | 'discover' | 'quiz' | 'profile';
@@ -34,7 +37,7 @@ export function BottomNav({ activeTab, onSelect }: BottomNavProps) {
             >
               <Feather
                 name={item.icon}
-                size={24}
+                size={active ? 30 : 28}
                 color={active ? primary : surface}
               />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
@@ -53,9 +56,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 22,
+    bottom: BOTTOM_NAV_BOTTOM_OFFSET,
     backgroundColor: 'transparent',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 0,
     paddingBottom: 0,
   },
@@ -64,23 +67,23 @@ const styles = StyleSheet.create({
     backgroundColor: primary,
     borderTopWidth: 0,
     borderRadius: 360,
-    height: 58,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    height: BOTTOM_NAV_HEIGHT,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     shadowOpacity: 0,
     elevation: 0,
     alignItems: 'center',
   },
   navItem: {
     flex: 1,
-    height: 42,
+    height: 58,
     borderRadius: 360,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
   },
   navItemActive: {
-    flex: 1.2,
+    flex: 1.36,
     backgroundColor: surface,
   },
   navItemPressed: {
@@ -89,8 +92,8 @@ const styles = StyleSheet.create({
   navLabel: {
     color: surface,
     fontWeight: '400',
-    fontSize: 8,
-    lineHeight: 12,
+    fontSize: 10,
+    lineHeight: 14,
     letterSpacing: 0,
   },
   navLabelActive: {

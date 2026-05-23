@@ -1,13 +1,12 @@
 import {
   interests,
   onboardingSlides,
-  questionSets,
   questionSetTags,
   quizQuestions,
   stats,
-  QuestionSetCard,
-  QuestionSetFilters,
-  QuizQuestion,
+  type QuestionSetCard,
+  type QuestionSetFilters,
+  type QuizQuestion,
 } from '../data/funfantiContent';
 
 type JsonRecord = Record<string, unknown>;
@@ -36,9 +35,9 @@ export type QuizSessionResult = {
 };
 
 type BootstrapPayload = {
-  questionSets: typeof questionSets;
+  questionSets: QuestionSetCard[];
   questionSetTags: string[];
-  quizQuestions: typeof quizQuestions;
+  quizQuestions: QuizQuestion[];
   stats: typeof stats;
   interests: typeof interests;
   onboardingSlides: typeof onboardingSlides;
@@ -139,31 +138,25 @@ const normalizeTags = (value: unknown, fallback: string[]) => {
   return tags.length > 0 ? tags : fallback;
 };
 
-const fallbackForRemoteSet = (remote: RemoteQuestionSet, index: number) => {
-  const remoteTitle = normalize(remote.title).toLowerCase();
-  const byTitle = questionSets.find((set) => remoteTitle && remoteTitle.includes(set.title.toLowerCase()));
-  return byTitle ?? questionSets[index % questionSets.length] ?? questionSets[0];
-};
-
 const mapRemoteQuestionSet = (remote: RemoteQuestionSet, index: number): QuestionSetCard => {
-  const fallback = fallbackForRemoteSet(remote, index);
   const mediaUrl = normalize(remote.mediaUrl);
 
   return {
-    ...fallback,
-    id: normalize(remote.id) || fallback.id,
-    title: normalize(remote.title) || fallback.title,
-    topic: normalize(remote.topic) || fallback.topic,
-    subtitle: normalize(remote.description) || fallback.subtitle,
-    creatorName: normalize(remote.creator?.displayName) || fallback.creatorName,
-    imageUrl: mediaUrl || fallback.imageUrl,
-    imageSource: mediaUrl ? undefined : fallback.imageSource,
-    isFeatured:
-      typeof remote.isFeatured === 'boolean' ? remote.isFeatured : fallback.isFeatured,
-    avgRating: normalizeNumber(remote.avgRating, fallback.avgRating),
-    questionCount: normalizeNumber(remote.questionCount, fallback.questionCount),
-    sessionCount: normalizeNumber(remote.sessionCount, fallback.sessionCount),
-    tags: normalizeTags(remote.tags, fallback.tags),
+    id: normalize(remote.id) || `question-set-${index + 1}`,
+    title: normalize(remote.title) || 'Untitled question set',
+    topic: normalize(remote.topic) || 'General',
+    subtitle: normalize(remote.description) || 'No description provided.',
+    creatorName: normalize(remote.creator?.displayName) || undefined,
+    progress: 0,
+    accent: '#E9FBFD',
+    artTone: '#DDF7FA',
+    imageUrl: mediaUrl || undefined,
+    imageSource: undefined,
+    tags: normalizeTags(remote.tags, []),
+    questionCount: normalizeNumber(remote.questionCount, 0),
+    avgRating: normalizeNumber(remote.avgRating, 0),
+    sessionCount: normalizeNumber(remote.sessionCount, 0),
+    isFeatured: typeof remote.isFeatured === 'boolean' ? remote.isFeatured : false,
   };
 };
 
@@ -298,7 +291,7 @@ const mapRemoteQuestions = (
     explanation: normalize(question.explanationText) || 'Nice work. Keep going.',
     artTone,
     imageUrl: normalize(question.mediaUrl) || setMediaUrl,
-    imageSource: setMediaUrl ? undefined : fallbackSet?.imageSource,
+    imageSource: undefined,
     choices: (Array.isArray(question.choices) ? question.choices : []).map((choice, choiceIndex) => ({
       id: normalize(choice.id) || letters[choiceIndex] || `choice-${choiceIndex + 1}`,
       label: normalize(choice.text) || `Choice ${choiceIndex + 1}`,
@@ -312,9 +305,9 @@ export const funfantiApi = {
   bootstrap: (): Promise<BootstrapPayload> => {
     return withFallback(
       {
-        questionSets,
-        questionSetTags,
-        quizQuestions,
+        questionSets: [],
+        questionSetTags: [],
+        quizQuestions: [],
         stats,
         interests,
         onboardingSlides,
@@ -330,9 +323,9 @@ export const funfantiApi = {
         ]);
 
         return {
-          questionSets: remoteQuestionSets.length > 0 ? remoteQuestionSets : questionSets,
-          questionSetTags: remoteTags.length > 0 ? remoteTags : questionSetTags,
-          quizQuestions,
+          questionSets: remoteQuestionSets,
+          questionSetTags: remoteTags,
+          quizQuestions: [],
           stats,
           interests,
           onboardingSlides,
@@ -355,16 +348,15 @@ export const funfantiApi = {
       body: JSON.stringify(payload),
     }),
   getQuestionSets: (filters: QuestionSetFilters = {}) =>
-    withFallback(applyLocalQuestionSetFilters(questionSets, filters), () => fetchQuestionSets(filters)),
-  getQuestionSetTags: () => withFallback(questionSetTags, fetchQuestionSetTags),
+    withFallback([], () => fetchQuestionSets(filters)),
+  getQuestionSetTags: () => withFallback([], fetchQuestionSetTags),
   getQuestionSetQuestions: (questionSetId: string) =>
-    withFallback(quizQuestions, async () => {
+    withFallback([], async () => {
       const payload = await requestJson<RemoteQuestionSetPayload>(
         `/question-sets/${questionSetId}/questions`,
       );
-      const fallbackSet = questionSets.find((set) => set.id === questionSetId);
-      const mappedQuestions = mapRemoteQuestions(payload, fallbackSet);
-      return mappedQuestions.length > 0 ? mappedQuestions : quizQuestions;
+      const mappedQuestions = mapRemoteQuestions(payload);
+      return mappedQuestions;
     }),
   submitQuizSession: (
     questionSetId: string,

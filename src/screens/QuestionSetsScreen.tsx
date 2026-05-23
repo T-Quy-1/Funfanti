@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { ImageSourcePropType } from 'react-native';
-import { BottomNav } from '../components';
+import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from '../components';
 import type {
   QuestionSetCard,
   QuestionSetFilters,
@@ -468,7 +468,13 @@ export function QuestionSetsScreen({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
+        overScrollMode="never"
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={[styles.resultsTitle, !showFeatured && styles.resultsTitleSearch]}>
           {showFeatured ? (
             'Featured'
@@ -769,7 +775,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 23,
-    paddingBottom: 144,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   resultsTitle: {
     color: palette.primary,

@@ -1,5 +1,5 @@
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { BottomNav } from "../components";
+import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from "../components";
 import { Feather } from '@expo/vector-icons';
 import { colors } from "../theme/colors";
 import { spacing, borderRadius, shadows, gradients } from "../theme/spacing";
@@ -37,7 +37,7 @@ type MainFlowProps = {
   quizIndex: number;
   selectedChoice: string | null;
   scoreSummary: { answered: number; correct: number; total: number; accuracy: number };
-  currentQuestion: QuizQuestion;
+  currentQuestion: QuizQuestion | null;
   questionStartedAtMs: number;
   questionDurations: Record<string, number>;
   quizTotalTimeMs: number;
@@ -80,6 +80,16 @@ const palette = {
 };
 
 const courseCardColors = [palette.peach, palette.mint, palette.lime, palette.aqua, palette.coral];
+const strictScrollProps = {
+  alwaysBounceVertical: false,
+  bounces: false,
+  overScrollMode: 'never' as const,
+};
+const strictHorizontalScrollProps = {
+  alwaysBounceHorizontal: false,
+  bounces: false,
+  overScrollMode: 'never' as const,
+};
 
 const quizDates = [
   { month: 'May', day: '23', weekDay: 'Fri' },
@@ -157,9 +167,11 @@ export function MainFlow(props: MainFlowProps) {
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
   const renderAppHeader = (title: string) => (
-    <View style={styles.figmaHeader}>
-      <Text style={styles.figmaHeaderTitle}>{title}</Text>
-    </View>
+    <SafeAreaView style={styles.figmaHeaderSafeArea}>
+      <View style={styles.figmaHeader}>
+        <Text style={styles.figmaHeaderTitle}>{title}</Text>
+      </View>
+    </SafeAreaView>
   );
 
   const renderCourseCard = (
@@ -195,9 +207,10 @@ export function MainFlow(props: MainFlowProps) {
   };
 
   const renderHome = () => (
-    <SafeAreaView style={styles.figmaPage}>
+    <View style={styles.figmaPage}>
       {renderAppHeader('Home')}
       <ScrollView
+        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.figmaHomeContent}
       >
@@ -215,9 +228,11 @@ export function MainFlow(props: MainFlowProps) {
         <View style={styles.figmaSectionHeader}>
           <Text style={styles.figmaSectionTitle}>Recent Courses</Text>
         </View>
-        <View style={styles.emptyRecentState}>
-          <Feather name="book-open" size={22} color={palette.primary} />
-          <Text style={styles.emptyRecentText}>No recent courses available</Text>
+        <View style={styles.emptyRecentRail}>
+          <View style={styles.emptyRecentState}>
+            <Feather name="book-open" size={22} color={palette.primary} />
+            <Text style={styles.emptyRecentText}>No recent courses available</Text>
+          </View>
         </View>
 
         <View style={styles.figmaSectionHeader}>
@@ -230,6 +245,7 @@ export function MainFlow(props: MainFlowProps) {
 
         {recommendedQuestionSets.length > 0 ? (
           <ScrollView
+            {...strictHorizontalScrollProps}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.homeCourseRail}
@@ -237,13 +253,15 @@ export function MainFlow(props: MainFlowProps) {
             {recommendedQuestionSets.map((set, index) => renderCourseCard(set, index, 'horizontal'))}
           </ScrollView>
         ) : (
-          <View style={styles.emptyRecentState}>
-            <Text style={styles.emptyRecentText}>No recommended courses available</Text>
+          <View style={styles.emptyRecentRail}>
+            <View style={styles.emptyRecentState}>
+              <Text style={styles.emptyRecentText}>No recommended courses available</Text>
+            </View>
           </View>
         )}
       </ScrollView>
       {renderBottomNav()}
-    </SafeAreaView>
+    </View>
   );
 
   const renderDiscover = () => (
@@ -277,27 +295,27 @@ export function MainFlow(props: MainFlowProps) {
   );
 
   const renderMyQuizzes = () => (
-    <SafeAreaView style={styles.figmaPage}>
+    <View style={styles.figmaPage}>
       {renderAppHeader('My Quizzes')}
+      <View style={styles.pinnedDateStrip}>
+        {quizDates.map((date) => (
+          <View
+            key={`${date.month}-${date.day}`}
+            style={[styles.dateCard, date.active && styles.dateCardActive]}
+          >
+            <Text style={[styles.dateMonth, date.active && styles.dateTextActive]}>{date.month}</Text>
+            <Text style={[styles.dateDay, date.active && styles.dateTextActive]}>{date.day}</Text>
+            <Text style={[styles.dateWeekDay, date.active && styles.dateTextActive]}>
+              {date.weekDay}
+            </Text>
+          </View>
+        ))}
+      </View>
       <ScrollView
+        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.myQuizzesContent}
       >
-        <View style={styles.dateStrip}>
-          {quizDates.map((date) => (
-            <View
-              key={`${date.month}-${date.day}`}
-              style={[styles.dateCard, date.active && styles.dateCardActive]}
-            >
-              <Text style={[styles.dateMonth, date.active && styles.dateTextActive]}>{date.month}</Text>
-              <Text style={[styles.dateDay, date.active && styles.dateTextActive]}>{date.day}</Text>
-              <Text style={[styles.dateWeekDay, date.active && styles.dateTextActive]}>
-                {date.weekDay}
-              </Text>
-            </View>
-          ))}
-        </View>
-
         <View style={styles.myQuizList}>
           {myQuizSets.length > 0 ? (
             myQuizSets.map((set, index) => renderCourseCard(set, index + 1, 'full'))
@@ -309,7 +327,7 @@ export function MainFlow(props: MainFlowProps) {
         </View>
       </ScrollView>
       {renderBottomNav()}
-    </SafeAreaView>
+    </View>
   );
 
   const renderQuiz = () => (
@@ -317,7 +335,6 @@ export function MainFlow(props: MainFlowProps) {
       question={currentQuestion}
       questionIndex={quizIndex}
       questionStartedAtMs={questionStartedAtMs}
-      questionDurationMs={questionDurations[currentQuestion.id]}
       selectedChoice={selectedChoice}
       totalQuestions={quizQuestions.length}
       submitting={quizSubmissionLoading}
@@ -325,6 +342,7 @@ export function MainFlow(props: MainFlowProps) {
       onBack={() => onSelectTab('quiz')}
       onSeeSummary={onSeeQuizSummary}
       onSelectChoice={onSelectChoice}
+      questionDurationMs={currentQuestion ? questionDurations[currentQuestion.id] : undefined}
     />
   );
 
@@ -340,9 +358,12 @@ export function MainFlow(props: MainFlowProps) {
   );
 
   const renderProfile = () => (
-    <SafeAreaView style={styles.figmaPage}>
-      <View style={styles.profileTopStrip} />
+    <View style={styles.figmaPage}>
+      <SafeAreaView style={styles.profileTopSafeArea}>
+        <View style={styles.profileTopStrip} />
+      </SafeAreaView>
       <ScrollView
+        {...strictScrollProps}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.profileContent}
       >
@@ -414,7 +435,7 @@ export function MainFlow(props: MainFlowProps) {
         </View>
       </ScrollView>
       {renderBottomNav()}
-    </SafeAreaView>
+    </View>
   );
 
   if (screen === "result") {
@@ -456,13 +477,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.page,
   },
+  figmaHeaderSafeArea: {
+    backgroundColor: palette.primary,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+  },
   figmaHeader: {
-    height: 158,
+    minHeight: 112,
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: Platform.OS === 'android' ? 18 : 0,
+    paddingBottom: 18,
   },
   figmaHeaderTitle: {
     color: palette.white,
@@ -473,8 +502,8 @@ const styles = StyleSheet.create({
   },
   figmaHomeContent: {
     paddingHorizontal: 19,
-    paddingTop: 48,
-    paddingBottom: 124,
+    paddingTop: 42,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   figmaGreetingRow: {
     minHeight: 56,
@@ -538,6 +567,7 @@ const styles = StyleSheet.create({
   },
   emptyRecentState: {
     minHeight: 104,
+    width: '100%',
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: palette.line,
@@ -546,7 +576,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     paddingHorizontal: 16,
-    marginBottom: 42,
+  },
+  emptyRecentRail: {
+    width: 301,
+    marginBottom: 38,
   },
   emptyRecentText: {
     color: palette.muted,
@@ -614,13 +647,16 @@ const styles = StyleSheet.create({
   },
   myQuizzesContent: {
     paddingHorizontal: 16,
-    paddingTop: 29,
-    paddingBottom: 124,
+    paddingTop: 18,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
-  dateStrip: {
+  pinnedDateStrip: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 26,
+    paddingBottom: 18,
+    backgroundColor: palette.white,
   },
   dateCard: {
     width: 64,
@@ -661,14 +697,17 @@ const styles = StyleSheet.create({
   myQuizList: {
     gap: 12,
   },
+  profileTopSafeArea: {
+    backgroundColor: palette.primary,
+  },
   profileTopStrip: {
-    height: 52,
+    height: 42,
     backgroundColor: palette.primary,
   },
   profileContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 124,
+    paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   profileHeroCompact: {
     alignItems: 'center',
@@ -712,22 +751,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   figmaMenuRow: {
-    minHeight: 48,
+    minHeight: 54,
     borderRadius: 360,
     borderWidth: 1.5,
     borderColor: palette.navy,
-    paddingHorizontal: 20,
+    paddingLeft: 20,
+    paddingRight: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   figmaToggleRow: {
-    minHeight: 48,
+    minHeight: 54,
     borderRadius: 360,
     borderWidth: 1.5,
     borderColor: palette.navy,
     paddingLeft: 20,
-    paddingRight: 12,
+    paddingRight: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

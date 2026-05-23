@@ -251,7 +251,7 @@ export function QuestionSetQuizScreen({
   onSelectChoice,
   submitting,
 }: {
-  question: QuizQuestion;
+  question: QuizQuestion | null;
   questionIndex: number;
   questionStartedAtMs: number;
   questionDurationMs?: number;
@@ -272,7 +272,24 @@ export function QuestionSetQuizScreen({
 
     const timerId = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(timerId);
-  }, [selectedChoice, question.id]);
+  }, [selectedChoice, question?.id]);
+
+  if (!question) {
+    return (
+      <SafeAreaView style={styles.quizPage}>
+        <View style={styles.detailHeader}>
+          <Pressable style={styles.detailBackButton} onPress={onBack}>
+            <Feather name="chevron-left" size={24} color={playColors.white} />
+          </Pressable>
+          <Text style={styles.detailHeaderTitle}>Quiz</Text>
+        </View>
+        <View style={styles.emptyDetail}>
+          <Text style={styles.emptyTitle}>No quiz questions yet</Text>
+          <Text style={styles.emptyBody}>Load a question set from the backend to begin.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const selected = question.choices.find((choice) => choice.id === selectedChoice);
   const answered = Boolean(selectedChoice);

@@ -22,11 +22,9 @@ import {
   filterChips as defaultFilterChips,
   interests as defaultInterests,
   onboardingSlides as defaultOnboardingSlides,
-  questionSets as defaultQuestionSets,
-  questionSetTags as defaultQuestionSetTags,
-  quizQuestions as defaultQuizQuestions,
   QuestionSetCard,
   QuestionSetFilters,
+  QuizQuestion,
   ScreenKey,
   stats as defaultStats,
 } from './src/data/funfantiContent';
@@ -50,19 +48,17 @@ export default function App() {
   const [onboardingSlides, setOnboardingSlides] = useState(defaultOnboardingSlides);
   const [interests, setInterests] = useState(defaultInterests);
   const [filterChips, setFilterChips] = useState(defaultFilterChips);
-  const [questionSets, setQuestionSets] = useState(defaultQuestionSets);
-  const [questionSetTags, setQuestionSetTags] = useState(defaultQuestionSetTags);
+  const [questionSets, setQuestionSets] = useState<QuestionSetCard[]>([]);
+  const [questionSetTags, setQuestionSetTags] = useState<string[]>([]);
   const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
   const [questionSetSearchQuery, setQuestionSetSearchQuery] = useState('');
   const [questionSetFilters, setQuestionSetFilters] = useState<QuestionSetFilters>({});
   const [bookmarkedQuestionSetIds, setBookmarkedQuestionSetIds] = useState<string[]>([]);
   const [questionSetActionLoadingId, setQuestionSetActionLoadingId] = useState<string | null>(null);
-  const [activeQuestionSetId, setActiveQuestionSetId] = useState(defaultQuestionSets[0]?.id ?? 'starter-quiz');
-  const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetCard | null>(
-    defaultQuestionSets[0] ?? null,
-  );
-  const [quizQuestions, setQuizQuestions] = useState(defaultQuizQuestions);
+  const [activeQuestionSetId, setActiveQuestionSetId] = useState('');
+  const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetCard | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [stats, setStats] = useState(defaultStats);
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
@@ -90,8 +86,8 @@ export default function App() {
       setInterests(payload.interests);
       setQuestionSets(payload.questionSets);
       setQuestionSetTags(payload.questionSetTags);
-      setActiveQuestionSetId(payload.questionSets[0]?.id ?? defaultQuestionSets[0]?.id ?? 'starter-quiz');
-      setActiveQuestionSet(payload.questionSets[0] ?? defaultQuestionSets[0] ?? null);
+      setActiveQuestionSetId(payload.questionSets[0]?.id ?? '');
+      setActiveQuestionSet(payload.questionSets[0] ?? null);
       setQuizQuestions(payload.quizQuestions);
       setStats(payload.stats);
       setRegisterName(payload.profile.displayName);
@@ -149,7 +145,7 @@ export default function App() {
     };
   }, [questionSetFilters, questionSetSearchQuery]);
 
-  const currentQuestion = quizQuestions[quizIndex] ?? defaultQuizQuestions[0];
+  const currentQuestion = quizQuestions[quizIndex] ?? null;
 
   const scoreSummary = useMemo(() => {
     const answerCount = Object.keys(answers).length;
@@ -204,6 +200,10 @@ export default function App() {
   };
 
   const submitChoice = (choiceId: string) => {
+    if (!currentQuestion) {
+      return;
+    }
+
     if (selectedChoice) {
       return;
     }
@@ -261,7 +261,7 @@ export default function App() {
   };
 
   const beginActiveQuestionSetQuiz = async () => {
-    const nextQuestionSet = activeQuestionSet ?? questionSets[0] ?? defaultQuestionSets[0];
+    const nextQuestionSet = activeQuestionSet ?? questionSets[0] ?? null;
 
     if (!nextQuestionSet) {
       return;
@@ -273,7 +273,7 @@ export default function App() {
 
     try {
       const nextQuestions = await funfantiApi.getQuestionSetQuestions(nextQuestionSet.id);
-      setQuizQuestions(nextQuestions.length > 0 ? nextQuestions : defaultQuizQuestions);
+      setQuizQuestions(nextQuestions);
     } finally {
       setQuestionSetActionLoadingId(null);
       startQuiz();
