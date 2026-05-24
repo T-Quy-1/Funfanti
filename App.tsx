@@ -29,7 +29,9 @@ import {
   stats as defaultStats,
 } from './src/data/funfantiContent';
 import { funfantiApi, type QuizSessionResult } from './src/services/funfantiApi';
-
+import * as Notifications from 'expo-notifications';
+import { notificationService, markQuestionAsCorrect } from './src/services/notificationService';
+import { QuickQuestionScreen } from './src/screens/QuickQuestionScreen';
 export default function App() {
   const [screen, setScreen] = useState<ScreenKey>('splash');
   const [activeSlide, setActiveSlide] = useState(0);
@@ -73,9 +75,20 @@ export default function App() {
   const [themeEnabled, setThemeEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [notificationOverlay, setNotificationOverlay] = useState(false);
+  const [quickQuestion, setQuickQuestion] = useState<QuizQuestion | null>(null);
 
   useEffect(() => {
     let mounted = true;
+
+    notificationService.requestPermissionsAsync();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const question = response.notification.request.content.data?.question as QuizQuestion | undefined;
+      if (question) {
+        setQuickQuestion(question);
+        setScreen('quick-question');
+      }
+    });
 
     void funfantiApi.bootstrap().then((payload) => {
       if (!mounted) {
@@ -106,6 +119,7 @@ export default function App() {
     return () => {
       mounted = false;
       clearTimeout(timer);
+      subscription.remove();
     };
   }, []);
 
@@ -301,9 +315,14 @@ export default function App() {
         : [...current, questionSet.id],
     );
 
-    void (alreadyBookmarked
-      ? funfantiApi.removeQuestionSetBookmark(questionSet.id, authToken)
-      : funfantiApi.bookmarkQuestionSet(questionSet.id, authToken));
+    void (async () => {
+      if (alreadyBookmarked) {
+        await funfantiApi.removeQuestionSetBookmark(questionSet.id, authToken);
+      } else {
+        await funfantiApi.bookmarkQuestionSet(questionSet.id, authToken);
+      }
+      await notificationService.replenishQuestionQueue(authToken);
+    })();
   };
 
   const handleRegister = async () => {
@@ -764,8 +783,10 @@ export default function App() {
           <Text style={styles.quizQuestion}>{currentQuestion.prompt}</Text>
 
           <View style={styles.choiceStack}>
-            {currentQuestion.choices.map((choice) => {
+            {currentQuestion.choices.map((choice, index) => {
               const active = selectedChoice === choice.id;
+              // Display A, B, C, D instead of raw choice IDs
+              const letter = String.fromCharCode(65 + index);
               return (
                 <Pressable
                   key={choice.id}
@@ -775,7 +796,7 @@ export default function App() {
                   ]}
                   onPress={() => submitChoice(choice.id)}
                 >
-                  <Text style={styles.choiceLetter}>{choice.id.toUpperCase()}</Text>
+                  <Text style={styles.choiceLetter}>{letter}</Text>
                   <Text style={styles.choiceText}>{choice.label}</Text>
                 </Pressable>
               );
@@ -1053,6 +1074,22 @@ export default function App() {
         return renderAuthFlowScreen('login', 'login-method');
       case 'auth-success':
         return renderAuthFlowScreen('auth-success', 'auth-select');
+      case 'quick-question':
+        return (
+          <QuickQuestionScreen
+            question={quickQuestion}
+            onClose={(wasCorrect) => {
+              // If the user answered correctly, track it and reschedule so
+              // this question is deprioritised in future notifications.
+              if (wasCorrect && quickQuestion) {
+                markQuestionAsCorrect(quickQuestion.id);
+                void notificationService.replenishQuestionQueue(authToken);
+              }
+              setScreen('home');
+              setActiveTab('home');
+            }}
+          />
+        );
       case 'home':
       case 'my-quizzes':
       case 'discover':

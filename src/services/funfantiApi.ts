@@ -47,7 +47,7 @@ type BootstrapPayload = {
   };
 };
 
-const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000').replace(
+const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://192.168.1.3:3000').replace(
   /\/$/,
   '',
 );
@@ -420,5 +420,23 @@ export const funfantiApi = {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         }),
+    ),
+  getBookmarks: (accessToken?: string | null) =>
+    withFallback(
+      [] as Array<{ id: string; questionSet: QuestionSetCard }>,
+      async () => {
+        const payload = await requestJson<Array<{ id: string; questionSet: RemoteQuestionSet }>>(
+          '/users/me/bookmarks',
+          {
+            headers: {
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+          },
+        );
+        return payload.map((item, index) => ({
+          ...item,
+          questionSet: mapRemoteQuestionSet(item.questionSet, index),
+        }));
+      }
     ),
 };
