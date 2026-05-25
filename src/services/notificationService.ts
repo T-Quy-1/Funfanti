@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { funfantiApi } from './funfantiApi';
 import { QuizQuestion } from '../data/funfantiContent';
+import { getUpcomingNotificationCheckDates } from '../utils/notificationPreferences';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -54,15 +55,33 @@ export const notificationService = {
   },
 
   async clearAllScheduledNotifications() {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     await Notifications.cancelAllScheduledNotificationsAsync();
   },
 
-  async replenishQuestionQueue(accessToken?: string | null) {
+  async replenishQuestionQueue(
+    accessToken?: string | null,
+    lockScreenTiming?: unknown,
+    notificationOverlay = true,
+  ) {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     // 1. Clear existing queue
     await this.clearAllScheduledNotifications();
 
+    if (!accessToken || !notificationOverlay) return;
+
+    const upcomingCheckDates = getUpcomingNotificationCheckDates(new Date(), lockScreenTiming, 10);
+    if (upcomingCheckDates.length === 0) {
+      return;
+    }
+
     // 2. Fetch bookmarks
-    if (!accessToken) return;
     const bookmarks = await funfantiApi.getBookmarks(accessToken);
     if (!bookmarks || bookmarks.length === 0) {
       return; // Nothing to schedule
@@ -92,32 +111,15 @@ export const notificationService = {
       return aCorrect - bCorrect;
     });
 
-    // 6. Schedule 10 notifications at 30-minute intervals
-    // Skips the window between 22:00 (10 PM) and 08:00 (8 AM)
-    const now = new Date();
-    let currentTriggerTime = now.getTime();
-    const intervalMs = 5 * 60 * 1000; // 30 minutes
-
-    for (let i = 0; i < Math.min(10, allQuestions.length); i++) {
-      currentTriggerTime += intervalMs;
-      let triggerDate = new Date(currentTriggerTime);
-
-      // Check quiet hours: 22:00 to 08:00
-      let hours = triggerDate.getHours();
-      if (hours >= 22 || hours < 8) {
-        // Skip to 08:00 of the (next) morning
-        if (hours >= 22) {
-          triggerDate.setDate(triggerDate.getDate() + 1);
-        }
-        triggerDate.setHours(8, 0, 0, 0);
-        currentTriggerTime = triggerDate.getTime();
-      }
+    // 6. Schedule checks every 15 minutes, only inside configured intervals.
+    for (let i = 0; i < Math.min(upcomingCheckDates.length, allQuestions.length); i++) {
+      const triggerDate = upcomingCheckDates[i];
 
       const question = allQuestions[i];
 
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Time for a Quick Question! 🧠",
+          title: 'Time for a Quick Question!',
           body: question.prompt,
           data: { question },
           sound: true,

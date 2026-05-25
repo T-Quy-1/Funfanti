@@ -23,6 +23,7 @@ import type {
   QuestionSetSort,
 } from '../data/funfantiContent';
 import type { AppTab } from './screenTypes';
+import { filterQuestionSets } from '../utils/questionSetFilters';
 
 const palette = {
   primary: '#269D54',
@@ -56,15 +57,10 @@ type QuestionSetsScreenProps = {
   questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
-  searchQuery: string;
-  submittedSearchQuery: string;
-  filters: QuestionSetFilters;
   bookmarkedQuestionSetIds: string[];
   bookmarkActionLoadingId: string | null;
   questionSetActionLoadingId: string | null;
   onSelectTab: (tab: AppTab) => void;
-  onChangeSearchQuery: (value: string) => void;
-  onApplyFilters: (filters: QuestionSetFilters) => void;
   onPlayQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleBookmark: (questionSet: QuestionSetCard) => void;
 };
@@ -284,19 +280,17 @@ export function QuestionSetsScreen({
   questionSetTags,
   questionSetsLoading,
   questionSetsError,
-  searchQuery,
-  submittedSearchQuery,
-  filters,
   bookmarkedQuestionSetIds,
   bookmarkActionLoadingId,
   questionSetActionLoadingId,
   onSelectTab,
-  onChangeSearchQuery,
-  onApplyFilters,
   onPlayQuestionSet,
   onToggleBookmark,
 }: QuestionSetsScreenProps) {
   const [filterVisible, setFilterVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
+  const [filters, setFilters] = useState<QuestionSetFilters>({});
   const [draftFilters, setDraftFilters] = useState<QuestionSetFilters>(filters);
   const [draftMinRatingText, setDraftMinRatingText] = useState(formatRatingInputValue(filters.minRating));
   const [draftMaxRatingText, setDraftMaxRatingText] = useState(formatRatingInputValue(filters.maxRating));
@@ -306,6 +300,19 @@ export function QuestionSetsScreen({
   const searchActive = submittedSearchQuery.trim().length > 0;
   const hasActiveFilters = hasActiveQuestionSetFilters(filters);
   const showFeatured = !searchActive && !hasActiveFilters;
+  const visibleQuestionSets = useMemo(
+    () =>
+      filterQuestionSets(
+        questionSets,
+        showFeatured
+          ? { isFeatured: true }
+          : {
+              ...filters,
+              search: submittedSearchQuery,
+            },
+      ),
+    [filters, questionSets, showFeatured, submittedSearchQuery],
+  );
 
   const availableTags = useMemo(
     () => Array.from(new Set(questionSetTags.map((tag) => tag.trim()).filter(Boolean))),
@@ -436,7 +443,7 @@ export function QuestionSetsScreen({
 
   const applyDraftFilters = () => {
     const normalizedFilters = normalizeRatingRange(draftFilters);
-    onApplyFilters(normalizedFilters);
+    setFilters(normalizedFilters);
     dismissFilterSheet();
   };
 
@@ -445,6 +452,18 @@ export function QuestionSetsScreen({
     setDraftMinRatingText('');
     setDraftMaxRatingText('');
     setQuestionCountHelpVisible(false);
+  };
+
+  const updateSearchQuery = (value: string) => {
+    setSearchQuery(value);
+
+    if (!value.trim()) {
+      setSubmittedSearchQuery('');
+    }
+  };
+
+  const submitSearch = () => {
+    setSubmittedSearchQuery(searchQuery.trim());
   };
 
   return (
@@ -463,9 +482,22 @@ export function QuestionSetsScreen({
             placeholder="Discover something new..."
             placeholderTextColor={palette.muted}
             value={searchQuery}
-            onChangeText={onChangeSearchQuery}
-            onSubmitEditing={() => onApplyFilters({ ...filters, search: searchQuery })}
+            onChangeText={updateSearchQuery}
+            onSubmitEditing={submitSearch}
           />
+          {searchQuery.trim() ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              style={({ pressed }) => [styles.searchClearButton, pressed && styles.pressed]}
+              onPress={() => {
+                setSearchQuery('');
+                setSubmittedSearchQuery('');
+              }}
+            >
+              <Feather name="x" size={17} color={palette.navy} />
+            </Pressable>
+          ) : null}
           <Feather name="search" size={25} color={palette.navy} />
         </View>
         <Pressable style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]} onPress={openFilters}>
@@ -487,8 +519,8 @@ export function QuestionSetsScreen({
             'Featured'
           ) : (
             <>
-              Found <Text style={styles.resultsCount}>{questionSets.length}</Text>{' '}
-              {questionSets.length === 1 ? 'result' : 'results'} ...
+              Found <Text style={styles.resultsCount}>{visibleQuestionSets.length}</Text>{' '}
+              {visibleQuestionSets.length === 1 ? 'result' : 'results'} ...
             </>
           )}
         </Text>
@@ -496,7 +528,7 @@ export function QuestionSetsScreen({
         {questionSetsError ? <Text style={styles.errorText}>{questionSetsError}</Text> : null}
         {questionSetsLoading ? <Text style={styles.loadingText}>Refreshing question sets...</Text> : null}
 
-        {questionSets.length === 0 && !questionSetsLoading ? (
+        {visibleQuestionSets.length === 0 && !questionSetsLoading ? (
           <View style={styles.emptyState}>
             <Feather name="search" size={26} color={palette.primary} />
             <Text style={styles.emptyTitle}>No matching sets</Text>
@@ -504,7 +536,7 @@ export function QuestionSetsScreen({
           </View>
         ) : null}
 
-        {questionSets.map((questionSet) => (
+        {visibleQuestionSets.map((questionSet) => (
           <QuestionSetCardView
             key={questionSet.id}
             questionSet={questionSet}
@@ -756,6 +788,14 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '400',
     paddingVertical: 0,
+  },
+  searchClearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8,18,69,0.08)',
   },
   filterButton: {
     width: 48,

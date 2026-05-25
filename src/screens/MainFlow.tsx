@@ -22,7 +22,7 @@ import {
   QuestionSetQuizScreen,
   QuestionSetSummaryScreen,
 } from './QuestionSetPlayFlow';
-import type { QuestionSetCard, QuestionSetFilters, QuizQuestion } from '../data/funfantiContent';
+import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
 import type {
   NotificationSchedule,
   QuizSessionResult,
@@ -30,6 +30,20 @@ import type {
   UserBookmark,
   UserProfile,
 } from '../services/funfantiApi';
+import {
+  POPUP_CHECK_INTERVAL_MINUTES,
+  areNotificationIntervalsEqual,
+  buildLockScreenTimingPreference,
+  createEditableNotificationInterval,
+  formatIntervalLabel,
+  normalizeLockScreenTiming,
+  sanitizeTimeInput,
+  serializeNotificationIntervals,
+  toEditableNotificationIntervals,
+  validateNotificationIntervals,
+  type EditableNotificationInterval,
+  type LockScreenTimingPreference,
+} from '../utils/notificationPreferences';
 
 type MainFlowProps = {
   screen: 'home' | 'my-quizzes' | 'discover' | 'question-detail' | 'quiz' | 'result' | 'profile';
@@ -50,9 +64,6 @@ type MainFlowProps = {
   questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
-  questionSetSearchQuery: string;
-  submittedQuestionSetSearchQuery: string;
-  questionSetFilters: QuestionSetFilters;
   bookmarkedQuestionSetIds: string[];
   bookmarkActionLoadingId: string | null;
   questionSetActionLoadingId: string | null;
@@ -73,8 +84,6 @@ type MainFlowProps = {
   onAdvanceQuiz: () => void;
   onSeeQuizSummary: () => void;
   onTakeQuestionSetQuiz: () => void;
-  onChangeQuestionSetSearch: (value: string) => void;
-  onApplyQuestionSetFilters: (filters: QuestionSetFilters) => void;
   onStartQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
@@ -82,11 +91,7 @@ type MainFlowProps = {
   onUpdateProfile: (payload: { displayName?: string; avatarUrl?: string }) => void;
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
-  onUpdateLockScreenTiming: (payload: {
-    morning?: string;
-    noon?: string;
-    evening?: string;
-  }) => void;
+  onUpdateLockScreenTiming: (payload: LockScreenTimingPreference) => void;
 };
 
 const palette = {
@@ -199,9 +204,6 @@ export function MainFlow(props: MainFlowProps) {
     questionSetTags,
     questionSetsLoading,
     questionSetsError,
-    questionSetSearchQuery,
-    submittedQuestionSetSearchQuery,
-    questionSetFilters,
     bookmarkedQuestionSetIds,
     bookmarkActionLoadingId,
     questionSetActionLoadingId,
@@ -222,8 +224,6 @@ export function MainFlow(props: MainFlowProps) {
     onAdvanceQuiz,
     onSeeQuizSummary,
     onTakeQuestionSetQuiz,
-    onChangeQuestionSetSearch,
-    onApplyQuestionSetFilters,
     onStartQuestionSet,
     onToggleQuestionSetBookmark,
     onRetryQuiz,
@@ -245,9 +245,7 @@ export function MainFlow(props: MainFlowProps) {
 
   const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
   const [avatarUrlDraft, setAvatarUrlDraft] = useState(profile?.avatarUrl ?? '');
-  const [lockScreenMorningDraft, setLockScreenMorningDraft] = useState('');
-  const [lockScreenNoonDraft, setLockScreenNoonDraft] = useState('');
-  const [lockScreenEveningDraft, setLockScreenEveningDraft] = useState('');
+  const [lockScreenIntervalDrafts, setLockScreenIntervalDrafts] = useState<EditableNotificationInterval[]>([]);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [visibleActivityCount, setVisibleActivityCount] = useState(10);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
@@ -259,18 +257,7 @@ export function MainFlow(props: MainFlowProps) {
   }, [displayName, profile?.avatarUrl]);
 
   useEffect(() => {
-    const timing = profile?.preference?.lockScreenTiming;
-
-    if (!timing) {
-      setLockScreenMorningDraft('');
-      setLockScreenNoonDraft('');
-      setLockScreenEveningDraft('');
-      return;
-    }
-
-    setLockScreenMorningDraft(timing.morning ?? '');
-    setLockScreenNoonDraft(timing.noon ?? '');
-    setLockScreenEveningDraft(timing.evening ?? '');
+    setLockScreenIntervalDrafts(toEditableNotificationIntervals(profile?.preference?.lockScreenTiming));
   }, [profile?.preference?.lockScreenTiming]);
 
   useEffect(() => {
@@ -331,17 +318,18 @@ export function MainFlow(props: MainFlowProps) {
     displayNameDraft.trim() !== (profile?.displayName ?? '').trim() ||
     avatarUrlDraft.trim() !== (profile?.avatarUrl ?? '').trim();
 
-  const currentLockScreenTiming = profile?.preference?.lockScreenTiming;
-  const lockScreenTimingChanged =
-    lockScreenMorningDraft.trim() !== (currentLockScreenTiming?.morning ?? '').trim() ||
-    lockScreenNoonDraft.trim() !== (currentLockScreenTiming?.noon ?? '').trim() ||
-    lockScreenEveningDraft.trim() !== (currentLockScreenTiming?.evening ?? '').trim();
+  const currentLockScreenTiming = normalizeLockScreenTiming(profile?.preference?.lockScreenTiming);
+  const lockScreenIntervalValidation = validateNotificationIntervals(lockScreenIntervalDrafts);
+  const lockScreenTimingChanged = !areNotificationIntervalsEqual(
+    lockScreenIntervalDrafts,
+    currentLockScreenTiming.intervals,
+  );
+  const canSaveLockScreenTiming = lockScreenTimingChanged && lockScreenIntervalValidation.isValid;
+  const serializedLockScreenIntervals = serializeNotificationIntervals(lockScreenIntervalDrafts);
 
-  const lockScreenTimingSummary = [
-    lockScreenMorningDraft.trim() || 'Morning unset',
-    lockScreenNoonDraft.trim() || 'Noon unset',
-    lockScreenEveningDraft.trim() || 'Evening unset',
-  ].join(' · ');
+  const lockScreenTimingSummary = serializedLockScreenIntervals.length
+    ? serializedLockScreenIntervals.map(formatIntervalLabel).join(' | ')
+    : 'No active windows';
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -355,6 +343,31 @@ export function MainFlow(props: MainFlowProps) {
 
   const renderError = (message: string | null) =>
     message ? <Text style={styles.errorText}>{message}</Text> : null;
+
+  const addLockScreenInterval = () => {
+    setLockScreenIntervalDrafts((current) => [
+      ...current,
+      createEditableNotificationInterval('08:00', '12:00'),
+    ]);
+  };
+
+  const updateLockScreenInterval = (
+    intervalId: string,
+    field: 'startTime' | 'endTime',
+    value: string,
+  ) => {
+    const nextValue = sanitizeTimeInput(value);
+
+    setLockScreenIntervalDrafts((current) =>
+      current.map((interval) =>
+        interval.id === intervalId ? { ...interval, [field]: nextValue } : interval,
+      ),
+    );
+  };
+
+  const removeLockScreenInterval = (intervalId: string) => {
+    setLockScreenIntervalDrafts((current) => current.filter((interval) => interval.id !== intervalId));
+  };
 
   const renderCourseCard = (
     questionSet: QuestionSetCard,
@@ -600,15 +613,10 @@ export function MainFlow(props: MainFlowProps) {
       questionSetTags={questionSetTags}
       questionSetsLoading={questionSetsLoading}
       questionSetsError={questionSetsError}
-      searchQuery={questionSetSearchQuery}
-      submittedSearchQuery={submittedQuestionSetSearchQuery}
-      filters={questionSetFilters}
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}
       onSelectTab={onSelectTab}
-      onChangeSearchQuery={onChangeQuestionSetSearch}
-      onApplyFilters={onApplyQuestionSetFilters}
       onPlayQuestionSet={onStartQuestionSet}
       onToggleBookmark={onToggleQuestionSetBookmark}
     />
@@ -760,72 +768,102 @@ export function MainFlow(props: MainFlowProps) {
             <View style={styles.timingHeader}>
               <Text style={styles.timingHeaderTitle}>Lock-screen pop-ups</Text>
               <Text style={styles.timingHeaderText}>
-                Set the times when quiz prompts can appear on the lock screen.
+                Lockscreen questions may appear during these time windows.
+              </Text>
+              <Text style={styles.timingHeaderText}>
+                The app checks every {POPUP_CHECK_INTERVAL_MINUTES} minutes during active intervals.
               </Text>
             </View>
             <View style={styles.timingPreviewRow}>
-              <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Morning: {lockScreenMorningDraft.trim() || 'unset'}</Text>
-              </View>
-              <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Noon: {lockScreenNoonDraft.trim() || 'unset'}</Text>
-              </View>
-              <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Evening: {lockScreenEveningDraft.trim() || 'unset'}</Text>
-              </View>
+              {serializedLockScreenIntervals.length > 0 ? (
+                serializedLockScreenIntervals.map((interval) => (
+                  <View key={`${interval.startTime}-${interval.endTime}`} style={styles.timingPreviewPill}>
+                    <Text style={styles.timingPreviewText}>{formatIntervalLabel(interval)}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.mutedText}>No lockscreen question windows are active.</Text>
+              )}
             </View>
-            <View style={styles.timingGrid}>
-              <View style={styles.timingField}>
-                <Text style={styles.inputLabel}>Morning</Text>
-                <TextInput
-                  style={styles.timingInput}
-                  value={lockScreenMorningDraft}
-                  onChangeText={setLockScreenMorningDraft}
-                  placeholder="08:00"
-                  placeholderTextColor={palette.muted}
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
-              <View style={styles.timingField}>
-                <Text style={styles.inputLabel}>Noon</Text>
-                <TextInput
-                  style={styles.timingInput}
-                  value={lockScreenNoonDraft}
-                  onChangeText={setLockScreenNoonDraft}
-                  placeholder="12:00"
-                  placeholderTextColor={palette.muted}
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
-              <View style={styles.timingField}>
-                <Text style={styles.inputLabel}>Evening</Text>
-                <TextInput
-                  style={styles.timingInput}
-                  value={lockScreenEveningDraft}
-                  onChangeText={setLockScreenEveningDraft}
-                  placeholder="18:00"
-                  placeholderTextColor={palette.muted}
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
+            <View style={styles.intervalList}>
+              {lockScreenIntervalDrafts.map((interval, index) => {
+                const intervalErrors = lockScreenIntervalValidation.errorsById[interval.id] ?? [];
+
+                return (
+                  <View key={interval.id} style={styles.intervalRow}>
+                    <View style={styles.intervalRowHeader}>
+                      <Text style={styles.inputLabel}>Window {index + 1}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove window ${index + 1}`}
+                        style={({ pressed }) => [styles.intervalIconButton, pressed && styles.pressed]}
+                        onPress={() => removeLockScreenInterval(interval.id)}
+                      >
+                        <Feather name="trash-2" size={16} color={palette.danger} />
+                      </Pressable>
+                    </View>
+                    <View style={styles.intervalInputsRow}>
+                      <View style={styles.intervalField}>
+                        <Text style={styles.intervalFieldLabel}>Start</Text>
+                        <TextInput
+                          style={[
+                            styles.timingInput,
+                            intervalErrors.length > 0 && styles.timingInputInvalid,
+                          ]}
+                          value={interval.startTime}
+                          onChangeText={(value) => updateLockScreenInterval(interval.id, 'startTime', value)}
+                          placeholder="08:00"
+                          placeholderTextColor={palette.muted}
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                        />
+                      </View>
+                      <View style={styles.intervalField}>
+                        <Text style={styles.intervalFieldLabel}>End</Text>
+                        <TextInput
+                          style={[
+                            styles.timingInput,
+                            intervalErrors.length > 0 && styles.timingInputInvalid,
+                          ]}
+                          value={interval.endTime}
+                          onChangeText={(value) => updateLockScreenInterval(interval.id, 'endTime', value)}
+                          placeholder="12:00"
+                          placeholderTextColor={palette.muted}
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                        />
+                      </View>
+                    </View>
+                    {intervalErrors.map((error) => (
+                      <Text key={error} style={styles.validationText}>
+                        {error}
+                      </Text>
+                    ))}
+                  </View>
+                );
+              })}
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.addIntervalButton, pressed && styles.pressed]}
+                onPress={addLockScreenInterval}
+              >
+                <Feather name="plus" size={17} color={palette.navy} />
+                <Text style={styles.addIntervalText}>Add time window</Text>
+              </Pressable>
             </View>
             <Text style={styles.mutedText}>Current: {lockScreenTimingSummary}</Text>
             <Pressable
-              disabled={!lockScreenTimingChanged}
+              disabled={!canSaveLockScreenTiming}
               style={({ pressed }) => [
                 styles.secondaryAction,
-                !lockScreenTimingChanged && styles.disabled,
+                !canSaveLockScreenTiming && styles.disabled,
                 pressed && styles.pressed,
               ]}
               onPress={() =>
-                onUpdateLockScreenTiming({
-                  morning: lockScreenMorningDraft.trim() || undefined,
-                  noon: lockScreenNoonDraft.trim() || undefined,
-                  evening: lockScreenEveningDraft.trim() || undefined,
-                })
+                onUpdateLockScreenTiming(buildLockScreenTimingPreference(lockScreenIntervalDrafts))
               }
             >
-              <Text style={styles.secondaryActionText}>Save lock-screen times</Text>
+              <Text style={styles.secondaryActionText}>Save time windows</Text>
             </Pressable>
           </View>
           {notificationOverlay ? (
@@ -850,11 +888,11 @@ export function MainFlow(props: MainFlowProps) {
                 onPress={() => setScheduleExpanded((current) => !current)}
               >
                 <View style={styles.scheduleDisclosureCopy}>
-                  <Text style={styles.scheduleDisclosureTitle}>Notification schedule</Text>
+                  <Text style={styles.scheduleDisclosureTitle}>Interval checks</Text>
                   <Text style={styles.mutedText}>
-                    {schedules.length > 0
-                      ? `${schedules.length} configured ${schedules.length === 1 ? 'schedule' : 'schedules'}`
-                      : 'No schedules configured'}
+                    {serializedLockScreenIntervals.length > 0
+                      ? `${serializedLockScreenIntervals.length} active ${serializedLockScreenIntervals.length === 1 ? 'window' : 'windows'}`
+                      : 'No active windows'}
                   </Text>
                 </View>
                 <Feather
@@ -865,20 +903,15 @@ export function MainFlow(props: MainFlowProps) {
               </Pressable>
               {scheduleExpanded ? (
                 <View style={styles.scheduleDetails}>
+                  <Text style={styles.mutedText}>
+                    Local notification checks are refreshed from the saved windows when your preferences,
+                    saved question sets, or answered questions change.
+                  </Text>
                   {schedules.length > 0 ? (
-                    schedules.map((schedule) => (
-                      <View key={schedule.id} style={styles.scheduleRow}>
-                        <Text style={styles.listText}>{schedule.dailyTime}</Text>
-                        <Text style={styles.mutedText}>
-                          {schedule.frequency} - {schedule.isActive ? 'Active' : 'Paused'}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
                     <Text style={styles.mutedText}>
-                      Notification schedule records will appear here after they are configured.
+                      Older exact-time schedule records are ignored by this interval flow.
                     </Text>
-                  )}
+                  ) : null}
                 </View>
               ) : null}
             </Animated.View>
@@ -1295,17 +1328,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  timingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  timingField: {
-    flexGrow: 1,
-    flexBasis: 122,
-  },
   timingInput: {
     minHeight: 46,
     borderWidth: 1,
@@ -1314,6 +1336,73 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: palette.navy,
     backgroundColor: '#FAFBFC',
+  },
+  timingInputInvalid: {
+    borderColor: palette.danger,
+    backgroundColor: '#FFF7F6',
+  },
+  intervalList: {
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  intervalRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#D9E5DA',
+    paddingBottom: 10,
+    gap: 8,
+  },
+  intervalRowHeader: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  intervalIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7F6',
+  },
+  intervalInputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  intervalField: {
+    flex: 1,
+    gap: 5,
+  },
+  intervalFieldLabel: {
+    color: palette.muted,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  validationText: {
+    color: palette.danger,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  addIntervalButton: {
+    minHeight: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: palette.white,
+  },
+  addIntervalText: {
+    color: palette.navy,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   timingPreviewRow: {
     flexDirection: 'row',

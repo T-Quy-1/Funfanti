@@ -4,11 +4,9 @@ import { View } from 'react-native';
 import { IntroFlow } from './src/screens/IntroFlow';
 import { AuthFlow } from './src/screens/AuthFlow';
 import { MainFlow } from './src/screens/MainFlow';
-import { hasActiveQuestionSetFilters } from './src/screens/QuestionSetsScreen';
 import {
   onboardingSlides,
   type QuestionSetCard,
-  type QuestionSetFilters,
   type QuizQuestion,
   type ScreenKey,
 } from './src/data/funfantiContent';
@@ -24,6 +22,7 @@ import {
   type UserBookmark,
   type UserProfile,
 } from './src/services/funfantiApi';
+import type { LockScreenTimingPreference } from './src/utils/notificationPreferences';
 
 const emptyProfileFromAuth = (user: AuthUser): UserProfile => ({
   id: user.id,
@@ -61,9 +60,6 @@ export default function App() {
   const [questionSetTags, setQuestionSetTags] = useState<string[]>([]);
   const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
-  const [questionSetSearchQuery, setQuestionSetSearchQuery] = useState('');
-  const [submittedQuestionSetSearchQuery, setSubmittedQuestionSetSearchQuery] = useState('');
-  const [questionSetFilters, setQuestionSetFilters] = useState<QuestionSetFilters>({});
   const [bookmarkActionLoadingId, setBookmarkActionLoadingId] = useState<string | null>(null);
   const [questionSetActionLoadingId, setQuestionSetActionLoadingId] = useState<string | null>(null);
   const [questionSetActionError, setQuestionSetActionError] = useState<string | null>(null);
@@ -154,6 +150,11 @@ export default function App() {
       setActivity(nextActivity);
       setSchedules(nextSchedules);
       syncPreferenceState(nextProfile);
+      void notificationService.replenishQuestionQueue(
+        token,
+        nextProfile.preference?.lockScreenTiming,
+        nextProfile.preference?.notificationOverlay,
+      );
     } catch (error) {
       setUserSpaceError(error instanceof Error ? error.message : 'Unable to load your profile data.');
     } finally {
@@ -183,22 +184,11 @@ export default function App() {
     questionSetFetchId.current = fetchId;
 
     const timeoutId = setTimeout(() => {
-      const search = submittedQuestionSetSearchQuery.trim();
       setQuestionSetsLoading(true);
       setQuestionSetsError(null);
 
-      const hasActiveFilters = hasActiveQuestionSetFilters(questionSetFilters);
-      const shouldShowFeatured = !search && !hasActiveFilters;
-
       void funfantiApi
-        .getQuestionSets(
-          {
-            ...questionSetFilters,
-            ...(shouldShowFeatured ? { isFeatured: true } : {}),
-            search: search || undefined,
-          },
-          authToken,
-        )
+        .getQuestionSets({}, authToken)
         .then((nextQuestionSets) => {
           if (questionSetFetchId.current !== fetchId) {
             return;
@@ -226,7 +216,7 @@ export default function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [authToken, questionSetFilters, submittedQuestionSetSearchQuery]);
+  }, [authToken]);
 
   useEffect(() => {
     if (authToken) {
@@ -238,6 +228,7 @@ export default function App() {
     setBookmarks([]);
     setActivity([]);
     setSchedules([]);
+    void notificationService.clearAllScheduledNotifications();
   }, [authToken, refreshUserSpace]);
 
   const goToAuthEntry = () => {
@@ -474,17 +465,6 @@ export default function App() {
     }
   };
 
-  const applyQuestionSetFilters = (filters: QuestionSetFilters) => {
-    const { search: _search, ...nextFilters } = filters;
-    if (Object.prototype.hasOwnProperty.call(filters, 'search')) {
-      const submittedSearch = _search?.trim() ?? '';
-      setSubmittedQuestionSetSearchQuery(submittedSearch);
-      setQuestionSetSearchQuery(submittedSearch);
-    }
-
-    setQuestionSetFilters(nextFilters);
-  };
-
   const toggleQuestionSetBookmark = async (questionSet: QuestionSetCard) => {
     if (!authToken) {
       setAuthError('Please log in to save question sets.');
@@ -530,7 +510,11 @@ export default function App() {
         await funfantiApi.bookmarkQuestionSet(questionSet.id, authToken);
       }
       setBookmarks(await funfantiApi.getBookmarks(authToken));
-      await notificationService.replenishQuestionQueue(authToken);
+      await notificationService.replenishQuestionQueue(
+        authToken,
+        profile?.preference?.lockScreenTiming,
+        notificationOverlay,
+      );
     } catch (error) {
       setBookmarks(previousBookmarks);
       setQuestionSets((current) =>
@@ -571,7 +555,7 @@ export default function App() {
     themeEnabled: boolean;
     hapticsEnabled: boolean;
     notificationOverlay: boolean;
-    lockScreenTiming?: Record<string, string | undefined>;
+    lockScreenTiming?: LockScreenTimingPreference;
   }) => {
     if (!authToken) {
       setAuthError('Please log in before changing settings.');
@@ -597,6 +581,11 @@ export default function App() {
       );
       setProfile(nextProfile);
       syncPreferenceState(nextProfile);
+      await notificationService.replenishQuestionQueue(
+        authToken,
+        nextProfile.preference?.lockScreenTiming,
+        nextProfile.preference?.notificationOverlay,
+      );
     } catch (error) {
       setThemeEnabled(previous.themeEnabled);
       setHapticsEnabled(previous.hapticsEnabled);
@@ -683,9 +672,6 @@ export default function App() {
       questionSetTags={questionSetTags}
       questionSetsLoading={questionSetsLoading}
       questionSetsError={questionSetsError}
-      questionSetSearchQuery={questionSetSearchQuery}
-      submittedQuestionSetSearchQuery={submittedQuestionSetSearchQuery}
-      questionSetFilters={questionSetFilters}
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}
@@ -706,8 +692,6 @@ export default function App() {
       onAdvanceQuiz={advanceQuiz}
       onSeeQuizSummary={seeQuizSummary}
       onTakeQuestionSetQuiz={beginActiveQuestionSetQuiz}
-      onChangeQuestionSetSearch={setQuestionSetSearchQuery}
-      onApplyQuestionSetFilters={applyQuestionSetFilters}
       onStartQuestionSet={startQuestionSet}
       onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
       onRetryQuiz={startQuiz}
@@ -779,7 +763,11 @@ export default function App() {
               if (wasCorrect && quickQuestion) {
                 markQuestionAsCorrect(quickQuestion.id);
                 if (authToken) {
-                  void notificationService.replenishQuestionQueue(authToken);
+                  void notificationService.replenishQuestionQueue(
+                    authToken,
+                    profile?.preference?.lockScreenTiming,
+                    notificationOverlay,
+                  );
                 }
               }
               setScreen('home');

@@ -4,6 +4,7 @@ import {
   type QuestionSetFilters,
   type QuizQuestion,
 } from '../data/funfantiContent';
+import type { LockScreenTimingPreference } from '../utils/notificationPreferences';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -23,11 +24,7 @@ export type UserPreference = {
   theme: 'light' | 'dark' | 'system' | string;
   hapticsEnabled: boolean;
   notificationOverlay: boolean;
-  lockScreenTiming?: {
-    morning?: string;
-    noon?: string;
-    evening?: string;
-  } | null;
+  lockScreenTiming?: LockScreenTimingPreference | Record<string, unknown> | null;
 };
 
 export type UserProfile = AuthUser & {
