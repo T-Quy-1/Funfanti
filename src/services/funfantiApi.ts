@@ -23,7 +23,11 @@ export type UserPreference = {
   theme: 'light' | 'dark' | 'system' | string;
   hapticsEnabled: boolean;
   notificationOverlay: boolean;
-  lockScreenTiming?: unknown;
+  lockScreenTiming?: {
+    morning?: string;
+    noon?: string;
+    evening?: string;
+  } | null;
 };
 
 export type UserProfile = AuthUser & {
