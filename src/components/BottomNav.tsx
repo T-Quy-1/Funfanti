@@ -5,7 +5,7 @@ const primary = '#269D54';
 const surface = '#FFFFFF';
 export const BOTTOM_NAV_HEIGHT = 76;
 export const BOTTOM_NAV_BOTTOM_OFFSET = 20;
-export const BOTTOM_NAV_CONTENT_PADDING = 96;
+export const BOTTOM_NAV_CONTENT_PADDING = 120;
 
 type BottomNavProps = {
   activeTab: 'home' | 'discover' | 'quiz' | 'profile';
