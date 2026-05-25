@@ -16,20 +16,23 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.funfanti.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.takhcmut.Funfantifrontend"
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-notifications",
-      "expo-font"
+      "expo-font",
+      "@react-native-firebase/app",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
