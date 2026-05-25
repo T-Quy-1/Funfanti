@@ -17,7 +17,8 @@ export type ScreenKey =
   | 'question-detail'
   | 'quiz'
   | 'result'
-  | 'profile';
+  | 'profile'
+  | 'quick-question';
 
 export type QuizChoice = {
   id: string;
