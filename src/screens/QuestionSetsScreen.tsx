@@ -24,6 +24,7 @@ import type {
 } from '../data/funfantiContent';
 import type { AppTab } from './screenTypes';
 import { filterQuestionSets } from '../utils/questionSetFilters';
+import { analyticsEvents, logEvent } from '../services/analytics';
 
 const palette = {
   primary: '#269D54',
@@ -371,6 +372,10 @@ export function QuestionSetsScreen({
   );
 
   const openFilters = () => {
+    void logEvent(analyticsEvents.question_sets_filter_open, {
+      source: 'search_bar',
+      active_tab: activeTab,
+    });
     sheetTranslateY.setValue(0);
     setDraftFilters(filters);
     setDraftMinRatingText(formatRatingInputValue(filters.minRating));
@@ -382,23 +387,33 @@ export function QuestionSetsScreen({
   const toggleDraftTag = (tag: string) => {
     setDraftFilters((current) => {
       const tags = current.tags ?? [];
-      const nextTags = tags.includes(tag)
-        ? tags.filter((currentTag) => currentTag !== tag)
-        : [...tags, tag];
+      const isEnabling = !tags.includes(tag);
+      void logEvent(analyticsEvents.question_sets_filter_tag_toggle, {
+        tag,
+        enabled: isEnabling ? 1 : 0,
+      });
+      const nextTags = isEnabling
+        ? [...tags, tag]
+        : tags.filter((currentTag) => currentTag !== tag);
       return { ...current, tags: nextTags };
     });
   };
 
   const toggleDraftQuestionRange = (range: (typeof questionRanges)[number]) => {
-    setDraftFilters((current) =>
-      matchesQuestionRange(current, range)
+    setDraftFilters((current) => {
+      const isDisabling = matchesQuestionRange(current, range);
+      void logEvent(analyticsEvents.question_sets_filter_range_toggle, {
+        range_label: range.label,
+        enabled: isDisabling ? 0 : 1,
+      });
+      return isDisabling
         ? withoutQuestionRange(current)
         : {
             ...current,
             minQuestions: range.minQuestions,
             maxQuestions: range.maxQuestions,
-          },
-    );
+          };
+    });
   };
 
   const updateDraftRating = (key: RatingFilterKey, value: string) => {
@@ -444,16 +459,27 @@ export function QuestionSetsScreen({
   };
 
   const toggleDraftSort = (sort: QuestionSetSort) => {
-    setDraftFilters((current) => (current.sort === sort ? withoutSort(current) : { ...current, sort }));
+    setDraftFilters((current) => {
+      const isDisabling = current.sort === sort;
+      void logEvent(analyticsEvents.question_sets_filter_sort_toggle, {
+        sort_type: sort,
+        enabled: isDisabling ? 0 : 1,
+      });
+      return isDisabling ? withoutSort(current) : { ...current, sort };
+    });
   };
 
   const applyDraftFilters = () => {
+    void logEvent(analyticsEvents.question_sets_filter_apply, {
+      filter_count: Object.keys(draftFilters).length,
+    });
     const normalizedFilters = normalizeRatingRange(draftFilters);
     setFilters(normalizedFilters);
     dismissFilterSheet();
   };
 
   const resetDraftFilters = () => {
+    void logEvent(analyticsEvents.question_sets_filter_reset, {});
     setDraftFilters({});
     setDraftMinRatingText('');
     setDraftMaxRatingText('');
@@ -465,7 +491,12 @@ export function QuestionSetsScreen({
   };
 
   const submitSearch = () => {
-    setSubmittedSearchQuery(searchQuery.trim());
+    const term = searchQuery.trim();
+    void logEvent(analyticsEvents.question_sets_search_submit, {
+      term,
+      from_filter_sheet: 0,
+    });
+    setSubmittedSearchQuery(term);
   };
 
   return (

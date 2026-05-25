@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { funfantiApi } from './funfantiApi';
 import { QuizQuestion } from '../data/funfantiContent';
+import { analyticsEvents, logEvent } from './analytics';
 import { getUpcomingNotificationCheckDates } from '../utils/notificationPreferences';
 
 Notifications.setNotificationHandler({
@@ -112,7 +113,8 @@ export const notificationService = {
     });
 
     // 6. Schedule checks every 15 minutes, only inside configured intervals.
-    for (let i = 0; i < Math.min(upcomingCheckDates.length, allQuestions.length); i++) {
+    const scheduledCount = Math.min(upcomingCheckDates.length, allQuestions.length);
+    for (let i = 0; i < scheduledCount; i++) {
       const triggerDate = upcomingCheckDates[i];
 
       const question = allQuestions[i];
@@ -128,6 +130,14 @@ export const notificationService = {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: triggerDate,
         },
+      });
+    }
+
+    if (scheduledCount > 0) {
+      void logEvent(analyticsEvents.lockscreen_notification_scheduled, {
+        scheduled_count: scheduledCount,
+        question_pool_count: allQuestions.length,
+        bookmark_set_count: bookmarks.length,
       });
     }
   },
