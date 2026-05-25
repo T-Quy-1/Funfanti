@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { BackHandler, View } from 'react-native';
 import { IntroFlow } from './src/screens/IntroFlow';
 import { AuthFlow } from './src/screens/AuthFlow';
 import { MainFlow } from './src/screens/MainFlow';
@@ -23,6 +23,17 @@ import {
   type UserProfile,
 } from './src/services/funfantiApi';
 import type { LockScreenTimingPreference } from './src/utils/notificationPreferences';
+import type { AppTab } from './src/screens/screenTypes';
+import {
+  createInitialTabStacks,
+  getTabStackTop,
+  isMainScreenKey,
+  popTabStack,
+  pushTabStack,
+  replaceTabStackTop,
+  type MainScreenKey,
+  type MainTabStacks,
+} from './src/utils/tabNavigation';
 
 const emptyProfileFromAuth = (user: AuthUser): UserProfile => ({
   id: user.id,
@@ -34,7 +45,8 @@ const emptyProfileFromAuth = (user: AuthUser): UserProfile => ({
 export default function App() {
   const [screen, setScreen] = useState<ScreenKey>('splash');
   const [activeSlide, setActiveSlide] = useState(0);
-  const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'quiz' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<AppTab>('home');
+  const [tabStacks, setTabStacks] = useState<MainTabStacks>(() => createInitialTabStacks());
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -106,6 +118,8 @@ export default function App() {
     () => bookmarks.map((bookmark) => bookmark.questionSet.id),
     [bookmarks],
   );
+
+  const currentMainScreen = getTabStackTop(tabStacks, activeTab);
 
   const currentQuestion = quizQuestions[quizIndex] ?? null;
 
@@ -236,9 +250,54 @@ export default function App() {
     setScreen('auth-select');
   };
 
-  const goToMainApp = () => {
-    setScreen('home');
+  const selectMainTab = (tab: AppTab) => {
+    setActiveTab(tab);
+    setScreen(getTabStackTop(tabStacks, tab));
+  };
+
+  const resetMainTabs = () => {
+    const nextStacks = createInitialTabStacks();
+    setTabStacks(nextStacks);
     setActiveTab('home');
+    setScreen('home');
+  };
+
+  const pushMainScreen = (nextScreen: MainScreenKey) => {
+    const nextStacks = pushTabStack(tabStacks, activeTab, nextScreen);
+
+    setTabStacks(nextStacks);
+    setScreen(nextScreen);
+  };
+
+  const replaceMainScreen = (nextScreen: MainScreenKey) => {
+    const nextStacks = replaceTabStackTop(tabStacks, activeTab, nextScreen);
+
+    setTabStacks(nextStacks);
+    setScreen(nextScreen);
+  };
+
+  const goBackInActiveTab = () => {
+    const nextState = popTabStack(tabStacks, activeTab);
+
+    setTabStacks(nextState.stacks);
+    setScreen(nextState.screen);
+  };
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isMainScreenKey(screen) && (tabStacks[activeTab]?.length ?? 0) > 1) {
+        goBackInActiveTab();
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [activeTab, screen, tabStacks]);
+
+  const goToMainApp = () => {
+    resetMainTabs();
   };
 
   const moveOnboarding = (direction: 1 | -1) => {
@@ -321,8 +380,7 @@ export default function App() {
     setActiveQuestionSetId(questionSet.id);
     setActiveQuestionSet(questionSet);
     setQuestionSetActionError(null);
-    setScreen('question-detail');
-    setActiveTab('quiz');
+    pushMainScreen('question-detail');
 
     try {
       const nextQuestionSet = await funfantiApi.getQuestionSet(questionSet.id, authToken);
@@ -332,7 +390,7 @@ export default function App() {
     }
   };
 
-  const startQuiz = () => {
+  const startQuiz = (navigationMode: 'push' | 'replace' = 'push') => {
     const now = Date.now();
     setQuizIndex(0);
     setAnswers({});
@@ -344,8 +402,12 @@ export default function App() {
     setQuizStartedAtMs(now);
     setQuestionStartedAtMs(now);
     setQuizTotalTimeMs(0);
-    setScreen('quiz');
-    setActiveTab('quiz');
+    if (navigationMode === 'replace') {
+      replaceMainScreen('quiz');
+      return;
+    }
+
+    pushMainScreen('quiz');
   };
 
   const beginActiveQuestionSetQuiz = async () => {
@@ -411,8 +473,6 @@ export default function App() {
     setQuizIndex(nextIndex);
     setSelectedChoice(null);
     setQuestionStartedAtMs(Date.now());
-    setScreen('quiz');
-    setActiveTab('quiz');
   };
 
   const submitQuizSession = async (finalAnswers: Record<string, string> = answers) => {
@@ -461,7 +521,7 @@ export default function App() {
   const seeQuizSummary = async () => {
     const saved = await submitQuizSession(answers);
     if (saved) {
-      setScreen('result');
+      pushMainScreen('result');
     }
   };
 
@@ -643,7 +703,7 @@ export default function App() {
     />
   );
 
-  const renderMainFlow = (mainScreen: 'home' | 'my-quizzes' | 'discover' | 'question-detail' | 'quiz' | 'result' | 'profile') => (
+  const renderMainFlow = (mainScreen: MainScreenKey) => (
     <MainFlow
       screen={mainScreen}
       profile={profile}
@@ -655,18 +715,9 @@ export default function App() {
       activity={activity}
       schedules={schedules}
       activeTab={activeTab}
-      onSelectTab={(tab) => {
-        setActiveTab(tab);
-        setScreen(tab === 'quiz' ? 'my-quizzes' : tab);
-      }}
-      onOpenDiscover={() => {
-        setActiveTab('discover');
-        setScreen('discover');
-      }}
-      onBackToHome={() => {
-        setScreen('home');
-        setActiveTab('home');
-      }}
+      onSelectTab={selectMainTab}
+      onOpenDiscover={() => selectMainTab('discover')}
+      onBack={goBackInActiveTab}
       activeQuestionSet={activeQuestionSet}
       questionSets={questionSets}
       questionSetTags={questionSetTags}
@@ -694,11 +745,8 @@ export default function App() {
       onTakeQuestionSetQuiz={beginActiveQuestionSetQuiz}
       onStartQuestionSet={startQuestionSet}
       onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
-      onRetryQuiz={startQuiz}
-      onContinueHome={() => {
-        setScreen('home');
-        setActiveTab('home');
-      }}
+      onRetryQuiz={() => startQuiz('replace')}
+      onContinueHome={() => selectMainTab('home')}
       onUpdateProfile={updateProfile}
       onRefreshUserSpace={() => {
         if (authToken) {
@@ -770,8 +818,7 @@ export default function App() {
                   );
                 }
               }
-              setScreen('home');
-              setActiveTab('home');
+              selectMainTab('home');
             }}
           />
         );
@@ -782,9 +829,9 @@ export default function App() {
       case 'quiz':
       case 'result':
       case 'profile':
-        return renderMainFlow(screen);
+        return renderMainFlow(currentMainScreen);
       default:
-        return renderMainFlow('home');
+        return renderMainFlow(currentMainScreen);
     }
   };
 

@@ -456,7 +456,6 @@ export function QuestionSetsScreen({
 
   const updateSearchQuery = (value: string) => {
     setSearchQuery(value);
-
     if (!value.trim()) {
       setSubmittedSearchQuery('');
     }
@@ -485,7 +484,7 @@ export function QuestionSetsScreen({
             onChangeText={updateSearchQuery}
             onSubmitEditing={submitSearch}
           />
-          {searchQuery.trim() ? (
+          {searchQuery.trim() || submittedSearchQuery.trim() ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Clear search"

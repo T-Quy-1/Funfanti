@@ -405,6 +405,7 @@ export function QuestionSetSummaryScreen({
   quizSessionResult,
   scoreSummary,
   totalTimeMs,
+  onBack,
   onContinue,
   onRetry,
 }: {
@@ -412,6 +413,7 @@ export function QuestionSetSummaryScreen({
   quizSessionResult: QuizSessionResult | null;
   scoreSummary: ScoreSummary;
   totalTimeMs: number;
+  onBack: () => void;
   onContinue: () => void;
   onRetry: () => void;
 }) {
@@ -426,6 +428,9 @@ export function QuestionSetSummaryScreen({
     <View style={styles.summaryPage}>
       <SafeAreaView style={{ backgroundColor: playColors.navy, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
         <View style={styles.summaryHeader}>
+          <Pressable style={styles.detailBackButton} onPress={onBack}>
+            <Feather name="chevron-left" size={24} color={playColors.white} />
+          </Pressable>
           <View style={styles.summaryHeaderRow}>
             <Feather name="star" size={24} color="#D6F300" />
             <Text style={styles.summaryHeaderTitle}>Summary</Text>

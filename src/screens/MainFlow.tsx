@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -58,7 +58,7 @@ type MainFlowProps = {
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
   onOpenDiscover: () => void;
-  onBackToHome: () => void;
+  onBack: () => void;
   activeQuestionSet: QuestionSetCard | null;
   questionSets: QuestionSetCard[];
   questionSetTags: string[];
@@ -198,7 +198,7 @@ export function MainFlow(props: MainFlowProps) {
     activeTab,
     onSelectTab,
     onOpenDiscover,
-    onBackToHome,
+    onBack,
     activeQuestionSet,
     questionSets,
     questionSetTags,
@@ -248,8 +248,6 @@ export function MainFlow(props: MainFlowProps) {
   const [lockScreenIntervalDrafts, setLockScreenIntervalDrafts] = useState<EditableNotificationInterval[]>([]);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [visibleActivityCount, setVisibleActivityCount] = useState(10);
-  const [scheduleExpanded, setScheduleExpanded] = useState(false);
-  const scheduleReveal = useRef(new Animated.Value(notificationOverlay ? 1 : 0)).current;
 
   useEffect(() => {
     setDisplayNameDraft(displayName);
@@ -260,19 +258,6 @@ export function MainFlow(props: MainFlowProps) {
     setLockScreenIntervalDrafts(toEditableNotificationIntervals(profile?.preference?.lockScreenTiming));
   }, [profile?.preference?.lockScreenTiming]);
 
-  useEffect(() => {
-    if (!notificationOverlay) {
-      scheduleReveal.setValue(0);
-      setScheduleExpanded(false);
-      return;
-    }
-
-    Animated.timing(scheduleReveal, {
-      toValue: 1,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  }, [notificationOverlay, scheduleReveal]);
 
   useEffect(() => {
     if (activityModalVisible) {
@@ -628,7 +613,7 @@ export function MainFlow(props: MainFlowProps) {
       error={questionSetActionError}
       loading={questionSetActionLoadingId === activeQuestionSet?.id}
       questionSet={activeQuestionSet}
-      onBack={onBackToHome}
+      onBack={onBack}
       onSelectTab={onSelectTab}
       onTakeQuiz={onTakeQuestionSetQuiz}
     />
@@ -673,7 +658,7 @@ export function MainFlow(props: MainFlowProps) {
       submitting={quizSubmissionLoading}
       submissionError={quizSubmissionError}
       onAdvance={onAdvanceQuiz}
-      onBack={() => onSelectTab('quiz')}
+      onBack={onBack}
       onSeeSummary={onSeeQuizSummary}
       onSelectChoice={onSelectChoice}
       questionDurationMs={currentQuestion ? questionDurations[currentQuestion.id] : undefined}
@@ -686,6 +671,7 @@ export function MainFlow(props: MainFlowProps) {
       quizSessionResult={quizSessionResult}
       scoreSummary={scoreSummary}
       totalTimeMs={quizTotalTimeMs}
+      onBack={onBack}
       onContinue={onContinueHome}
       onRetry={onRetryQuiz}
     />
@@ -764,7 +750,8 @@ export function MainFlow(props: MainFlowProps) {
               thumbColor={notificationOverlay ? palette.primary : palette.white}
             />
           </View>
-          <View style={styles.timingSection}>
+          {notificationOverlay ? (
+            <View style={styles.timingSection}>
             <View style={styles.timingHeader}>
               <Text style={styles.timingHeaderTitle}>Lock-screen pop-ups</Text>
               <Text style={styles.timingHeaderText}>
@@ -866,55 +853,6 @@ export function MainFlow(props: MainFlowProps) {
               <Text style={styles.secondaryActionText}>Save time windows</Text>
             </Pressable>
           </View>
-          {notificationOverlay ? (
-            <Animated.View
-              style={[
-                styles.scheduleReveal,
-                {
-                  opacity: scheduleReveal,
-                  transform: [
-                    {
-                      translateY: scheduleReveal.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [8, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <Pressable
-                style={({ pressed }) => [styles.scheduleDisclosure, pressed && styles.pressed]}
-                onPress={() => setScheduleExpanded((current) => !current)}
-              >
-                <View style={styles.scheduleDisclosureCopy}>
-                  <Text style={styles.scheduleDisclosureTitle}>Interval checks</Text>
-                  <Text style={styles.mutedText}>
-                    {serializedLockScreenIntervals.length > 0
-                      ? `${serializedLockScreenIntervals.length} active ${serializedLockScreenIntervals.length === 1 ? 'window' : 'windows'}`
-                      : 'No active windows'}
-                  </Text>
-                </View>
-                <Feather
-                  name={scheduleExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={22}
-                  color={palette.navy}
-                />
-              </Pressable>
-              {scheduleExpanded ? (
-                <View style={styles.scheduleDetails}>
-                  <Text style={styles.mutedText}>
-                    Local notification checks are refreshed from the saved windows when your preferences,
-                    saved question sets, or answered questions change.
-                  </Text>
-                  {schedules.length > 0 ? (
-                    <Text style={styles.mutedText}>
-                      Older exact-time schedule records are ignored by this interval flow.
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-            </Animated.View>
           ) : null}
         </View>
 
@@ -945,37 +883,57 @@ export function MainFlow(props: MainFlowProps) {
     </View>
   );
 
-  if (screen === 'result') {
-    return renderResult();
-  }
+  const renderRootScene = (
+    rootScreen: MainFlowProps['screen'],
+    content: ReactNode,
+  ) => (
+    <View
+      key={rootScreen}
+      pointerEvents={screen === rootScreen ? 'auto' : 'none'}
+      style={[styles.tabScene, screen !== rootScreen && styles.tabSceneHidden]}
+    >
+      {content}
+    </View>
+  );
 
-  if (screen === 'question-detail') {
-    return renderQuestionDetail();
-  }
+  const renderStackScreen = () => {
+    if (screen === 'result') {
+      return renderResult();
+    }
 
-  if (screen === 'quiz') {
-    return renderQuiz();
-  }
+    if (screen === 'question-detail') {
+      return renderQuestionDetail();
+    }
 
-  if (screen === 'my-quizzes') {
-    return renderMyQuizzes();
-  }
+    if (screen === 'quiz') {
+      return renderQuiz();
+    }
 
-  switch (activeTab) {
-    case 'home':
-      return renderHome();
-    case 'discover':
-      return renderDiscover();
-    case 'quiz':
-      return renderMyQuizzes();
-    case 'profile':
-      return renderProfile();
-    default:
-      return renderHome();
-  }
+    return null;
+  };
+
+  return (
+    <View style={styles.navigatorRoot}>
+      {renderRootScene('home', renderHome())}
+      {renderRootScene('discover', renderDiscover())}
+      {renderRootScene('my-quizzes', renderMyQuizzes())}
+      {renderRootScene('profile', renderProfile())}
+      {renderStackScreen()}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  navigatorRoot: {
+    flex: 1,
+    backgroundColor: palette.page,
+  },
+  tabScene: {
+    flex: 1,
+  },
+  tabSceneHidden: {
+    display: 'none',
+  },
   page: {
     flex: 1,
     backgroundColor: palette.page,
