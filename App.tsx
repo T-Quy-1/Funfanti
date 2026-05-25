@@ -140,17 +140,9 @@ export default function App() {
       (response) => {
         const question = response.notification.request.content.data
           ?.question as QuizQuestion | undefined;
-        const actionId = response.actionIdentifier;
         void logEvent(analyticsEvents.lockscreen_notification_open, {
           question_id: question?.id,
-          action_id: actionId,
         });
-        if (actionId && actionId !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
-          void logEvent(analyticsEvents.lockscreen_notification_action, {
-            action_id: actionId,
-            question_id: question?.id,
-          });
-        }
         if (question) {
           setQuickQuestion(question);
           setScreen("quick-question");
@@ -371,11 +363,6 @@ export default function App() {
       return;
     }
 
-    void logEvent(analyticsEvents.onboarding_next, {
-      from_slide: activeSlide + 1,
-      to_slide: next + 1,
-      direction,
-    });
     setActiveSlide(next);
     setScreen(onboardingSlides[next].key);
   };
@@ -644,15 +631,27 @@ export default function App() {
       return;
     }
 
-    void logEvent(analyticsEvents.quiz_next, {
-      from_index: quizIndex + 1,
-      to_index: nextIndex + 1,
-      question_set_id: activeQuestionSetId,
-    });
     setQuizIndex(nextIndex);
     setSelectedChoice(null);
     setQuestionStartedAtMs(Date.now());
     setScreen("quiz");
+    setActiveTab("quiz");
+  };
+
+  const exitQuiz = (reason: "back" | "tab" | "other" = "back") => {
+    const answeredCount = Object.keys(answers).length;
+    const questionIndex = quizQuestions.length ? quizIndex + 1 : 0;
+    const timeSpentMs = Math.max(0, Date.now() - quizStartedAtMs);
+
+    void logEvent(analyticsEvents.quiz_exit, {
+      question_set_id: activeQuestionSetId,
+      question_index: questionIndex,
+      answered_count: answeredCount,
+      time_spent_ms: timeSpentMs,
+      exit_reason: reason,
+    });
+
+    setScreen("my-quizzes");
     setActiveTab("quiz");
   };
 
@@ -750,9 +749,11 @@ export default function App() {
 
     const alreadyBookmarked = bookmarkedQuestionSetIds.includes(questionSet.id);
     const previousBookmarks = bookmarks;
+    const primaryTag = questionSet.tags?.[0] ?? questionSet.topic;
     void logEvent(analyticsEvents.question_set_bookmark_toggle, {
       question_set_id: questionSet.id,
       enabled: alreadyBookmarked ? 0 : 1,
+      primary_tag: primaryTag,
     });
     setBookmarkActionLoadingId(questionSet.id);
     setQuestionSetsError(null);
@@ -928,18 +929,10 @@ export default function App() {
       }}
       onGoToLogin={() => {
         setAuthError(null);
-        void logEvent(analyticsEvents.auth_method_select, {
-          method: "email",
-          mode: "login",
-        });
         setScreen("login");
       }}
       onGoToRegister={() => {
         setAuthError(null);
-        void logEvent(analyticsEvents.auth_method_select, {
-          method: "email",
-          mode: "register",
-        });
         setScreen("register");
       }}
       onSubmitRegister={handleRegister}
@@ -970,17 +963,10 @@ export default function App() {
       schedules={schedules}
       activeTab={activeTab}
       onSelectTab={(tab) => {
-        void logEvent(analyticsEvents.tab_select, {
-          tab,
-        });
         setActiveTab(tab);
         setScreen(tab === "quiz" ? "my-quizzes" : tab);
       }}
       onOpenDiscover={() => {
-        void logEvent(analyticsEvents.tab_select, {
-          tab: "discover",
-          source: "cta",
-        });
         setActiveTab("discover");
         setScreen("discover");
       }}
@@ -1014,6 +1000,7 @@ export default function App() {
       notificationOverlay={notificationOverlay}
       onSelectChoice={submitChoice}
       onAdvanceQuiz={advanceQuiz}
+      onExitQuiz={() => exitQuiz("back")}
       onSeeQuizSummary={seeQuizSummary}
       onTakeQuestionSetQuiz={beginActiveQuestionSetQuiz}
       onChangeQuestionSetSearch={setQuestionSetSearchQuery}
@@ -1039,10 +1026,6 @@ export default function App() {
         }
       }}
       onUpdateNotificationOverlay={(value) => {
-        void logEvent(analyticsEvents.settings_toggle, {
-          setting: "notification_overlay",
-          enabled: value ? 1 : 0,
-        });
         void updatePreference({
           themeEnabled,
           hapticsEnabled,
@@ -1050,11 +1033,6 @@ export default function App() {
         });
       }}
       onUpdateLockScreenTiming={(value) => {
-        void logEvent(analyticsEvents.lockscreen_timing_save, {
-          morning: value.morning,
-          noon: value.noon,
-          evening: value.evening,
-        });
         void updatePreference({
           themeEnabled,
           hapticsEnabled,

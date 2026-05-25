@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -12,27 +12,38 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from '../components';
-import type { AppTab } from './screenTypes';
-import { QuestionSetsScreen } from './QuestionSetsScreen';
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from "../components";
+import type { AppTab } from "./screenTypes";
+import { QuestionSetsScreen } from "./QuestionSetsScreen";
 import {
   QuestionSetDetailScreen,
   QuestionSetQuizScreen,
   QuestionSetSummaryScreen,
-} from './QuestionSetPlayFlow';
-import type { QuestionSetCard, QuestionSetFilters, QuizQuestion } from '../data/funfantiContent';
+} from "./QuestionSetPlayFlow";
+import type {
+  QuestionSetCard,
+  QuestionSetFilters,
+  QuizQuestion,
+} from "../data/funfantiContent";
 import type {
   NotificationSchedule,
   QuizSessionResult,
   UserActivity,
   UserBookmark,
   UserProfile,
-} from '../services/funfantiApi';
+} from "../services/funfantiApi";
 
 type MainFlowProps = {
-  screen: 'home' | 'my-quizzes' | 'discover' | 'question-detail' | 'quiz' | 'result' | 'profile';
+  screen:
+    | "home"
+    | "my-quizzes"
+    | "discover"
+    | "question-detail"
+    | "quiz"
+    | "result"
+    | "profile";
   profile: UserProfile | null;
   profileSaving: boolean;
   profileError: string | null;
@@ -60,7 +71,12 @@ type MainFlowProps = {
   quizQuestions: QuizQuestion[];
   quizIndex: number;
   selectedChoice: string | null;
-  scoreSummary: { answered: number; correct: number; total: number; accuracy: number };
+  scoreSummary: {
+    answered: number;
+    correct: number;
+    total: number;
+    accuracy: number;
+  };
   currentQuestion: QuizQuestion | null;
   questionStartedAtMs: number;
   questionDurations: Record<string, number>;
@@ -71,6 +87,7 @@ type MainFlowProps = {
   notificationOverlay: boolean;
   onSelectChoice: (choiceId: string) => void;
   onAdvanceQuiz: () => void;
+  onExitQuiz: () => void;
   onSeeQuizSummary: () => void;
   onTakeQuestionSetQuiz: () => void;
   onChangeQuestionSetSearch: (value: string) => void;
@@ -79,7 +96,10 @@ type MainFlowProps = {
   onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
   onContinueHome: () => void;
-  onUpdateProfile: (payload: { displayName?: string; avatarUrl?: string }) => void;
+  onUpdateProfile: (payload: {
+    displayName?: string;
+    avatarUrl?: string;
+  }) => void;
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
   onUpdateLockScreenTiming: (payload: {
@@ -90,39 +110,52 @@ type MainFlowProps = {
 };
 
 const palette = {
-  primary: '#269D54',
-  navy: '#081245',
-  black: '#161616',
-  ink: '#24252C',
-  white: '#FFFFFF',
-  peach: '#FED19C',
-  mint: '#D3F1D9',
-  lime: '#EEF4C2',
-  aqua: 'rgba(43,217,222,0.5)',
-  coral: '#FF8080',
-  page: '#FFFFFF',
-  muted: '#5F6672',
-  line: '#E8EDF0',
-  danger: '#B42318',
+  primary: "#269D54",
+  navy: "#081245",
+  black: "#161616",
+  ink: "#24252C",
+  white: "#FFFFFF",
+  peach: "#FED19C",
+  mint: "#D3F1D9",
+  lime: "#EEF4C2",
+  aqua: "rgba(43,217,222,0.5)",
+  coral: "#FF8080",
+  page: "#FFFFFF",
+  muted: "#5F6672",
+  line: "#E8EDF0",
+  danger: "#B42318",
 };
 
-const courseCardColors = [palette.peach, palette.mint, palette.lime, palette.aqua, palette.coral];
+const courseCardColors = [
+  palette.peach,
+  palette.mint,
+  palette.lime,
+  palette.aqua,
+  palette.coral,
+];
 
 const truncateText = (value: string, maxLength = 34) =>
   value.length > maxLength ? `${value.substring(0, maxLength)}...` : value;
 
 const formatDate = (value: string) =>
-  new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
+  new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
+    new Date(value),
+  );
 
 const formatTime = (value: number | null) => {
   if (value === null) {
-    return 'Not recorded';
+    return "Not recorded";
   }
   return `${Math.max(1, Math.round(value / 1000))}s`;
 };
 
-const createCardFromBookmark = (bookmark: UserBookmark, questionSets: QuestionSetCard[]): QuestionSetCard => {
-  const matched = questionSets.find((questionSet) => questionSet.id === bookmark.questionSet.id);
+const createCardFromBookmark = (
+  bookmark: UserBookmark,
+  questionSets: QuestionSetCard[],
+): QuestionSetCard => {
+  const matched = questionSets.find(
+    (questionSet) => questionSet.id === bookmark.questionSet.id,
+  );
   if (matched) {
     return matched;
   }
@@ -134,8 +167,8 @@ const createCardFromBookmark = (bookmark: UserBookmark, questionSets: QuestionSe
     subtitle: bookmark.questionSet.description,
     description: bookmark.questionSet.description,
     progress: 0,
-    accent: '#E9FBFD',
-    artTone: '#DDF7FA',
+    accent: "#E9FBFD",
+    artTone: "#DDF7FA",
     imageUrl: bookmark.questionSet.mediaUrl ?? undefined,
     imageSource: undefined,
     tags: [],
@@ -153,7 +186,9 @@ const createCardFromActivity = (
   questionSets: QuestionSetCard[],
   bookmarkedQuestionSetIds: string[],
 ): QuestionSetCard => {
-  const matched = questionSets.find((questionSet) => questionSet.id === item.questionSet.id);
+  const matched = questionSets.find(
+    (questionSet) => questionSet.id === item.questionSet.id,
+  );
   if (matched) {
     return matched;
   }
@@ -164,9 +199,9 @@ const createCardFromActivity = (
     topic: item.questionSet.topic,
     subtitle: `${item.status} - ${formatDate(item.createdAt)} - ${formatTime(item.totalTimeMs)}`,
     description: `${item.questionSet.title} activity from ${formatDate(item.createdAt)}.`,
-    progress: item.status.toLowerCase() === 'completed' ? 1 : 0,
-    accent: '#E9FBFD',
-    artTone: '#DDF7FA',
+    progress: item.status.toLowerCase() === "completed" ? 1 : 0,
+    accent: "#E9FBFD",
+    artTone: "#DDF7FA",
     imageUrl: undefined,
     imageSource: undefined,
     tags: [],
@@ -220,6 +255,7 @@ export function MainFlow(props: MainFlowProps) {
     notificationOverlay,
     onSelectChoice,
     onAdvanceQuiz,
+    onExitQuiz,
     onSeeQuizSummary,
     onTakeQuestionSetQuiz,
     onChangeQuestionSetSearch,
@@ -234,43 +270,47 @@ export function MainFlow(props: MainFlowProps) {
     onUpdateLockScreenTiming,
   } = props;
 
-  const displayName = profile?.displayName?.trim() || 'Funfanti Learner';
-  const displayEmail = profile?.email?.trim() || 'No email available';
+  const displayName = profile?.displayName?.trim() || "Funfanti Learner";
+  const displayEmail = profile?.email?.trim() || "No email available";
   const initials = displayName
     .split(/\s+/)
     .map((part) => part[0])
-    .join('')
+    .join("")
     .slice(0, 2)
     .toUpperCase();
 
   const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
-  const [avatarUrlDraft, setAvatarUrlDraft] = useState(profile?.avatarUrl ?? '');
-  const [lockScreenMorningDraft, setLockScreenMorningDraft] = useState('');
-  const [lockScreenNoonDraft, setLockScreenNoonDraft] = useState('');
-  const [lockScreenEveningDraft, setLockScreenEveningDraft] = useState('');
+  const [avatarUrlDraft, setAvatarUrlDraft] = useState(
+    profile?.avatarUrl ?? "",
+  );
+  const [lockScreenMorningDraft, setLockScreenMorningDraft] = useState("");
+  const [lockScreenNoonDraft, setLockScreenNoonDraft] = useState("");
+  const [lockScreenEveningDraft, setLockScreenEveningDraft] = useState("");
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [visibleActivityCount, setVisibleActivityCount] = useState(10);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
-  const scheduleReveal = useRef(new Animated.Value(notificationOverlay ? 1 : 0)).current;
+  const scheduleReveal = useRef(
+    new Animated.Value(notificationOverlay ? 1 : 0),
+  ).current;
 
   useEffect(() => {
     setDisplayNameDraft(displayName);
-    setAvatarUrlDraft(profile?.avatarUrl ?? '');
+    setAvatarUrlDraft(profile?.avatarUrl ?? "");
   }, [displayName, profile?.avatarUrl]);
 
   useEffect(() => {
     const timing = profile?.preference?.lockScreenTiming;
 
     if (!timing) {
-      setLockScreenMorningDraft('');
-      setLockScreenNoonDraft('');
-      setLockScreenEveningDraft('');
+      setLockScreenMorningDraft("");
+      setLockScreenNoonDraft("");
+      setLockScreenEveningDraft("");
       return;
     }
 
-    setLockScreenMorningDraft(timing.morning ?? '');
-    setLockScreenNoonDraft(timing.noon ?? '');
-    setLockScreenEveningDraft(timing.evening ?? '');
+    setLockScreenMorningDraft(timing.morning ?? "");
+    setLockScreenNoonDraft(timing.noon ?? "");
+    setLockScreenEveningDraft(timing.evening ?? "");
   }, [profile?.preference?.lockScreenTiming]);
 
   useEffect(() => {
@@ -294,7 +334,9 @@ export function MainFlow(props: MainFlowProps) {
   }, [activityModalVisible]);
 
   const featuredQuestionSets = useMemo(() => {
-    return questionSets.filter((questionSet) => questionSet.isFeatured).slice(0, 5);
+    return questionSets
+      .filter((questionSet) => questionSet.isFeatured)
+      .slice(0, 5);
   }, [questionSets]);
 
   const recentDistinctQuestionSets = useMemo(() => {
@@ -307,7 +349,9 @@ export function MainFlow(props: MainFlowProps) {
       }
 
       seenQuestionSetIds.add(item.questionSet.id);
-      distinctItems.push(createCardFromActivity(item, questionSets, bookmarkedQuestionSetIds));
+      distinctItems.push(
+        createCardFromActivity(item, questionSets, bookmarkedQuestionSetIds),
+      );
 
       if (distinctItems.length === 2) {
         break;
@@ -318,7 +362,10 @@ export function MainFlow(props: MainFlowProps) {
   }, [activity, bookmarkedQuestionSetIds, questionSets]);
 
   const savedQuestionSets = useMemo(
-    () => bookmarks.map((bookmark) => createCardFromBookmark(bookmark, questionSets)),
+    () =>
+      bookmarks.map((bookmark) =>
+        createCardFromBookmark(bookmark, questionSets),
+      ),
     [bookmarks, questionSets],
   );
 
@@ -328,22 +375,27 @@ export function MainFlow(props: MainFlowProps) {
   );
 
   const profileChanged =
-    displayNameDraft.trim() !== (profile?.displayName ?? '').trim() ||
-    avatarUrlDraft.trim() !== (profile?.avatarUrl ?? '').trim();
+    displayNameDraft.trim() !== (profile?.displayName ?? "").trim() ||
+    avatarUrlDraft.trim() !== (profile?.avatarUrl ?? "").trim();
 
   const currentLockScreenTiming = profile?.preference?.lockScreenTiming;
   const lockScreenTimingChanged =
-    lockScreenMorningDraft.trim() !== (currentLockScreenTiming?.morning ?? '').trim() ||
-    lockScreenNoonDraft.trim() !== (currentLockScreenTiming?.noon ?? '').trim() ||
-    lockScreenEveningDraft.trim() !== (currentLockScreenTiming?.evening ?? '').trim();
+    lockScreenMorningDraft.trim() !==
+      (currentLockScreenTiming?.morning ?? "").trim() ||
+    lockScreenNoonDraft.trim() !==
+      (currentLockScreenTiming?.noon ?? "").trim() ||
+    lockScreenEveningDraft.trim() !==
+      (currentLockScreenTiming?.evening ?? "").trim();
 
   const lockScreenTimingSummary = [
-    lockScreenMorningDraft.trim() || 'Morning unset',
-    lockScreenNoonDraft.trim() || 'Noon unset',
-    lockScreenEveningDraft.trim() || 'Evening unset',
-  ].join(' · ');
+    lockScreenMorningDraft.trim() || "Morning unset",
+    lockScreenNoonDraft.trim() || "Noon unset",
+    lockScreenEveningDraft.trim() || "Evening unset",
+  ].join(" · ");
 
-  const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
+  const renderBottomNav = () => (
+    <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
+  );
 
   const renderAppHeader = (title: string) => (
     <SafeAreaView style={styles.headerSafeArea}>
@@ -359,19 +411,31 @@ export function MainFlow(props: MainFlowProps) {
   const renderCourseCard = (
     questionSet: QuestionSetCard,
     index: number,
-    variant: 'horizontal' | 'full',
+    variant: "horizontal" | "full",
   ) => {
     const cardColor = courseCardColors[index % courseCardColors.length];
-    const status = questionSet.progress >= 1 ? 'Completed' : questionSet.isBookmarked ? 'Saved' : 'Available';
-    const widthStyle = variant === 'horizontal' ? styles.homeCourseCard : styles.quizCourseCard;
+    const status =
+      questionSet.progress >= 1
+        ? "Completed"
+        : questionSet.isBookmarked
+          ? "Saved"
+          : "Available";
+    const widthStyle =
+      variant === "horizontal" ? styles.homeCourseCard : styles.quizCourseCard;
 
     return (
       <Pressable
         key={questionSet.id}
-        style={({ pressed }) => [widthStyle, { backgroundColor: cardColor }, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          widthStyle,
+          { backgroundColor: cardColor },
+          pressed && styles.pressed,
+        ]}
         onPress={() => onStartQuestionSet(questionSet)}
       >
-        <Text style={styles.courseTitle}>{truncateText(questionSet.title, 42)}</Text>
+        <Text style={styles.courseTitle}>
+          {truncateText(questionSet.title, 42)}
+        </Text>
         <Text style={styles.courseAuthor}>
           {truncateText(questionSet.creatorName ?? questionSet.topic, 36)}
         </Text>
@@ -383,7 +447,8 @@ export function MainFlow(props: MainFlowProps) {
             <View style={styles.courseMetaItem}>
               <Feather name="book-open" size={15} color={palette.black} />
               <Text style={styles.courseMetaText}>
-                {questionSet.questionCount} {questionSet.questionCount === 1 ? 'Question' : 'Questions'}
+                {questionSet.questionCount}{" "}
+                {questionSet.questionCount === 1 ? "Question" : "Questions"}
               </Text>
             </View>
           ) : (
@@ -392,28 +457,37 @@ export function MainFlow(props: MainFlowProps) {
           {questionSet.avgRating > 0 ? (
             <View style={styles.courseMetaItem}>
               <Feather name="star" size={14} color={palette.black} />
-              <Text style={styles.courseMetaText}>{questionSet.avgRating.toFixed(1)}</Text>
+              <Text style={styles.courseMetaText}>
+                {questionSet.avgRating.toFixed(1)}
+              </Text>
             </View>
           ) : null}
         </View>
         <View style={styles.statusPill}>
-          <Text style={[styles.statusText, { color: cardColor }]}>{status}</Text>
+          <Text style={[styles.statusText, { color: cardColor }]}>
+            {status}
+          </Text>
         </View>
       </Pressable>
     );
   };
 
-  const renderActivityRow = (item: UserActivity, compact = false, onPress?: () => void) => {
+  const renderActivityRow = (
+    item: UserActivity,
+    compact = false,
+    onPress?: () => void,
+  ) => {
     const rowContent = (
       <>
         <View style={styles.activityCopy}>
           <Text style={styles.listText}>{item.questionSet.title}</Text>
           <Text style={styles.mutedText}>
-            {item.status} - {formatDate(item.createdAt)} - {formatTime(item.totalTimeMs)}
+            {item.status} - {formatDate(item.createdAt)} -{" "}
+            {formatTime(item.totalTimeMs)}
           </Text>
         </View>
         <Text style={styles.activityScore}>
-          {item.score === null ? '--' : `${item.score}%`}
+          {item.score === null ? "--" : `${item.score}%`}
         </Text>
       </>
     );
@@ -437,7 +511,10 @@ export function MainFlow(props: MainFlowProps) {
     }
 
     return (
-      <View key={item.id} style={[styles.activityRow, compact && styles.activityRowCompact]}>
+      <View
+        key={item.id}
+        style={[styles.activityRow, compact && styles.activityRowCompact]}
+      >
         {rowContent}
       </View>
     );
@@ -461,9 +538,12 @@ export function MainFlow(props: MainFlowProps) {
     contentOffset: { y: number };
     contentSize: { height: number };
   }) => {
-    const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 80;
+    const nearBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 80;
     if (nearBottom && visibleActivityCount < activity.length) {
-      setVisibleActivityCount((current) => Math.min(current + 10, activity.length));
+      setVisibleActivityCount((current) =>
+        Math.min(current + 10, activity.length),
+      );
     }
   };
 
@@ -480,12 +560,17 @@ export function MainFlow(props: MainFlowProps) {
           <View style={styles.historySheetHeader}>
             <View>
               <Text style={styles.historySheetTitle}>Activity History</Text>
-              <Text style={styles.mutedText}>{activity.length} recorded play sessions</Text>
+              <Text style={styles.mutedText}>
+                {activity.length} recorded play sessions
+              </Text>
             </View>
             <Pressable
               accessibilityLabel="Close activity history"
               accessibilityRole="button"
-              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.iconAction,
+                pressed && styles.pressed,
+              ]}
               onPress={closeActivityHistory}
             >
               <Feather name="x" size={18} color={palette.navy} />
@@ -502,7 +587,9 @@ export function MainFlow(props: MainFlowProps) {
             ) : (
               <View style={styles.emptyState}>
                 <Feather name="clock" size={22} color={palette.primary} />
-                <Text style={styles.emptyText}>Completed quiz attempts will appear here.</Text>
+                <Text style={styles.emptyText}>
+                  Completed quiz attempts will appear here.
+                </Text>
               </View>
             )}
             {visibleActivityCount < activity.length ? (
@@ -515,11 +602,17 @@ export function MainFlow(props: MainFlowProps) {
 
   const renderHome = () => (
     <View style={styles.page}>
-      {renderAppHeader('Home')}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.homeContent}>
+      {renderAppHeader("Home")}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.homeContent}
+      >
         <View style={styles.greetingRow}>
           {profile?.avatarUrl ? (
-            <Image source={{ uri: profile.avatarUrl }} style={styles.smallAvatarImage} />
+            <Image
+              source={{ uri: profile.avatarUrl }}
+              style={styles.smallAvatarImage}
+            />
           ) : (
             <View style={styles.smallAvatar}>
               <Text style={styles.smallAvatarText}>{initials}</Text>
@@ -529,7 +622,9 @@ export function MainFlow(props: MainFlowProps) {
             <Text style={styles.hello}>Hello</Text>
             <Text style={styles.name}>{displayName}</Text>
           </View>
-          {userSpaceLoading ? <ActivityIndicator color={palette.primary} /> : null}
+          {userSpaceLoading ? (
+            <ActivityIndicator color={palette.primary} />
+          ) : null}
         </View>
 
         {renderError(userSpaceError)}
@@ -556,12 +651,16 @@ export function MainFlow(props: MainFlowProps) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.homeCourseRail}
           >
-            {featuredQuestionSets.map((set, index) => renderCourseCard(set, index, 'horizontal'))}
+            {featuredQuestionSets.map((set, index) =>
+              renderCourseCard(set, index, "horizontal"),
+            )}
           </ScrollView>
         ) : !questionSetsLoading ? (
           <View style={styles.emptyState}>
             <Feather name="book-open" size={22} color={palette.primary} />
-            <Text style={styles.emptyText}>No question sets are available yet.</Text>
+            <Text style={styles.emptyText}>
+              No question sets are available yet.
+            </Text>
           </View>
         ) : null}
 
@@ -579,12 +678,16 @@ export function MainFlow(props: MainFlowProps) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.homeCourseRail}
           >
-            {recentDistinctQuestionSets.map((set, index) => renderCourseCard(set, index, 'horizontal'))}
+            {recentDistinctQuestionSets.map((set, index) =>
+              renderCourseCard(set, index, "horizontal"),
+            )}
           </ScrollView>
         ) : (
           <View style={styles.emptyState}>
             <Feather name="clock" size={22} color={palette.primary} />
-            <Text style={styles.emptyText}>Your two most recent distinct quizzes will appear here.</Text>
+            <Text style={styles.emptyText}>
+              Your two most recent distinct quizzes will appear here.
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -628,8 +731,11 @@ export function MainFlow(props: MainFlowProps) {
 
   const renderMyQuizzes = () => (
     <View style={styles.page}>
-      {renderAppHeader('Saved Question Sets')}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.savedContent}>
+      {renderAppHeader("Saved Question Sets")}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.savedContent}
+      >
         {renderError(userSpaceError)}
         {userSpaceLoading ? (
           <View style={styles.inlineLoading}>
@@ -639,13 +745,23 @@ export function MainFlow(props: MainFlowProps) {
         ) : null}
         {savedQuestionSets.length > 0 ? (
           <View style={styles.savedList}>
-            {savedQuestionSets.map((set, index) => renderCourseCard(set, index + 1, 'full'))}
+            {savedQuestionSets.map((set, index) =>
+              renderCourseCard(set, index + 1, "full"),
+            )}
           </View>
         ) : !userSpaceLoading ? (
           <View style={styles.emptyState}>
             <Feather name="bookmark" size={22} color={palette.primary} />
-            <Text style={styles.emptyText}>Saved question sets will appear here.</Text>
-            <Pressable style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]} onPress={onOpenDiscover}>
+            <Text style={styles.emptyText}>
+              Saved question sets will appear here.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.secondaryAction,
+                pressed && styles.pressed,
+              ]}
+              onPress={onOpenDiscover}
+            >
               <Text style={styles.secondaryActionText}>Browse sets</Text>
             </Pressable>
           </View>
@@ -665,10 +781,12 @@ export function MainFlow(props: MainFlowProps) {
       submitting={quizSubmissionLoading}
       submissionError={quizSubmissionError}
       onAdvance={onAdvanceQuiz}
-      onBack={() => onSelectTab('quiz')}
+      onBack={onExitQuiz}
       onSeeSummary={onSeeQuizSummary}
       onSelectChoice={onSelectChoice}
-      questionDurationMs={currentQuestion ? questionDurations[currentQuestion.id] : undefined}
+      questionDurationMs={
+        currentQuestion ? questionDurations[currentQuestion.id] : undefined
+      }
     />
   );
 
@@ -685,11 +803,17 @@ export function MainFlow(props: MainFlowProps) {
 
   const renderProfile = () => (
     <View style={styles.page}>
-      {renderAppHeader('Profile')}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.profileContent}>
+      {renderAppHeader("Profile")}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.profileContent}
+      >
         <View style={styles.profileHero}>
           {profile?.avatarUrl ? (
-            <Image source={{ uri: profile.avatarUrl }} style={styles.profileAvatarImage} />
+            <Image
+              source={{ uri: profile.avatarUrl }}
+              style={styles.profileAvatarImage}
+            />
           ) : (
             <View style={styles.profileAvatar}>
               <Text style={styles.profileAvatarText}>{initials}</Text>
@@ -697,7 +821,12 @@ export function MainFlow(props: MainFlowProps) {
           )}
           <Text style={styles.profileName}>{displayName}</Text>
           <Text style={styles.profileEmail}>{displayEmail}</Text>
-          {userSpaceLoading ? <ActivityIndicator color={palette.primary} style={styles.profileLoader} /> : null}
+          {userSpaceLoading ? (
+            <ActivityIndicator
+              color={palette.primary}
+              style={styles.profileLoader}
+            />
+          ) : null}
         </View>
 
         {renderError(profileError)}
@@ -706,7 +835,13 @@ export function MainFlow(props: MainFlowProps) {
         <View style={styles.panel}>
           <View style={styles.panelHeaderRow}>
             <Text style={styles.panelTitle}>Account</Text>
-            <Pressable style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]} onPress={onRefreshUserSpace}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.iconAction,
+                pressed && styles.pressed,
+              ]}
+              onPress={onRefreshUserSpace}
+            >
               <Feather name="refresh-cw" size={16} color={palette.navy} />
             </Pressable>
           </View>
@@ -737,11 +872,17 @@ export function MainFlow(props: MainFlowProps) {
             onPress={() =>
               onUpdateProfile({
                 displayName: displayNameDraft.trim(),
-                ...(avatarUrlDraft.trim() ? { avatarUrl: avatarUrlDraft.trim() } : {}),
+                ...(avatarUrlDraft.trim()
+                  ? { avatarUrl: avatarUrlDraft.trim() }
+                  : {}),
               })
             }
           >
-            {profileSaving ? <ActivityIndicator color={palette.white} /> : <Text style={styles.primaryActionText}>Save profile</Text>}
+            {profileSaving ? (
+              <ActivityIndicator color={palette.white} />
+            ) : (
+              <Text style={styles.primaryActionText}>Save profile</Text>
+            )}
           </Pressable>
         </View>
 
@@ -752,7 +893,7 @@ export function MainFlow(props: MainFlowProps) {
             <Switch
               value={notificationOverlay}
               onValueChange={onUpdateNotificationOverlay}
-              trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
+              trackColor={{ false: "#D8DEE5", true: "#97D8AF" }}
               thumbColor={notificationOverlay ? palette.primary : palette.white}
             />
           </View>
@@ -765,13 +906,19 @@ export function MainFlow(props: MainFlowProps) {
             </View>
             <View style={styles.timingPreviewRow}>
               <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Morning: {lockScreenMorningDraft.trim() || 'unset'}</Text>
+                <Text style={styles.timingPreviewText}>
+                  Morning: {lockScreenMorningDraft.trim() || "unset"}
+                </Text>
               </View>
               <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Noon: {lockScreenNoonDraft.trim() || 'unset'}</Text>
+                <Text style={styles.timingPreviewText}>
+                  Noon: {lockScreenNoonDraft.trim() || "unset"}
+                </Text>
               </View>
               <View style={styles.timingPreviewPill}>
-                <Text style={styles.timingPreviewText}>Evening: {lockScreenEveningDraft.trim() || 'unset'}</Text>
+                <Text style={styles.timingPreviewText}>
+                  Evening: {lockScreenEveningDraft.trim() || "unset"}
+                </Text>
               </View>
             </View>
             <View style={styles.timingGrid}>
@@ -809,7 +956,9 @@ export function MainFlow(props: MainFlowProps) {
                 />
               </View>
             </View>
-            <Text style={styles.mutedText}>Current: {lockScreenTimingSummary}</Text>
+            <Text style={styles.mutedText}>
+              Current: {lockScreenTimingSummary}
+            </Text>
             <Pressable
               disabled={!lockScreenTimingChanged}
               style={({ pressed }) => [
@@ -825,7 +974,9 @@ export function MainFlow(props: MainFlowProps) {
                 })
               }
             >
-              <Text style={styles.secondaryActionText}>Save lock-screen times</Text>
+              <Text style={styles.secondaryActionText}>
+                Save lock-screen times
+              </Text>
             </Pressable>
           </View>
           {notificationOverlay ? (
@@ -846,19 +997,24 @@ export function MainFlow(props: MainFlowProps) {
               ]}
             >
               <Pressable
-                style={({ pressed }) => [styles.scheduleDisclosure, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.scheduleDisclosure,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => setScheduleExpanded((current) => !current)}
               >
                 <View style={styles.scheduleDisclosureCopy}>
-                  <Text style={styles.scheduleDisclosureTitle}>Notification schedule</Text>
+                  <Text style={styles.scheduleDisclosureTitle}>
+                    Notification schedule
+                  </Text>
                   <Text style={styles.mutedText}>
                     {schedules.length > 0
-                      ? `${schedules.length} configured ${schedules.length === 1 ? 'schedule' : 'schedules'}`
-                      : 'No schedules configured'}
+                      ? `${schedules.length} configured ${schedules.length === 1 ? "schedule" : "schedules"}`
+                      : "No schedules configured"}
                   </Text>
                 </View>
                 <Feather
-                  name={scheduleExpanded ? 'chevron-up' : 'chevron-down'}
+                  name={scheduleExpanded ? "chevron-up" : "chevron-down"}
                   size={22}
                   color={palette.navy}
                 />
@@ -868,15 +1024,19 @@ export function MainFlow(props: MainFlowProps) {
                   {schedules.length > 0 ? (
                     schedules.map((schedule) => (
                       <View key={schedule.id} style={styles.scheduleRow}>
-                        <Text style={styles.listText}>{schedule.dailyTime}</Text>
+                        <Text style={styles.listText}>
+                          {schedule.dailyTime}
+                        </Text>
                         <Text style={styles.mutedText}>
-                          {schedule.frequency} - {schedule.isActive ? 'Active' : 'Paused'}
+                          {schedule.frequency} -{" "}
+                          {schedule.isActive ? "Active" : "Paused"}
                         </Text>
                       </View>
                     ))
                   ) : (
                     <Text style={styles.mutedText}>
-                      Notification schedule records will appear here after they are configured.
+                      Notification schedule records will appear here after they
+                      are configured.
                     </Text>
                   )}
                 </View>
@@ -889,7 +1049,10 @@ export function MainFlow(props: MainFlowProps) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open full activity history"
-            style={({ pressed }) => [styles.panelHeaderRow, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.panelHeaderRow,
+              pressed && styles.pressed,
+            ]}
             onPress={openActivityHistory}
           >
             <Text style={styles.panelTitle}>Activity History</Text>
@@ -900,42 +1063,47 @@ export function MainFlow(props: MainFlowProps) {
             ) : null}
           </Pressable>
           {activity.length > 0 ? (
-            activity.slice(0, 2).map((item) => renderActivityRow(item, false, openActivityHistory))
+            activity
+              .slice(0, 2)
+              .map((item) =>
+                renderActivityRow(item, false, openActivityHistory),
+              )
           ) : (
-            <Text style={styles.mutedText}>Completed quiz attempts will appear here.</Text>
+            <Text style={styles.mutedText}>
+              Completed quiz attempts will appear here.
+            </Text>
           )}
         </View>
-
       </ScrollView>
       {renderBottomNav()}
       {renderActivityHistoryModal()}
     </View>
   );
 
-  if (screen === 'result') {
+  if (screen === "result") {
     return renderResult();
   }
 
-  if (screen === 'question-detail') {
+  if (screen === "question-detail") {
     return renderQuestionDetail();
   }
 
-  if (screen === 'quiz') {
+  if (screen === "quiz") {
     return renderQuiz();
   }
 
-  if (screen === 'my-quizzes') {
+  if (screen === "my-quizzes") {
     return renderMyQuizzes();
   }
 
   switch (activeTab) {
-    case 'home':
+    case "home":
       return renderHome();
-    case 'discover':
+    case "discover":
       return renderDiscover();
-    case 'quiz':
+    case "quiz":
       return renderMyQuizzes();
-    case 'profile':
+    case "profile":
       return renderProfile();
     default:
       return renderHome();
@@ -951,23 +1119,23 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   header: {
     minHeight: 118,
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: Platform.OS === 'android' ? 18 : 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: Platform.OS === "android" ? 18 : 0,
     paddingBottom: 18,
   },
   headerTitle: {
     color: palette.white,
     fontSize: 24,
     lineHeight: 36,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0,
   },
   homeContent: {
@@ -977,8 +1145,8 @@ const styles = StyleSheet.create({
   },
   greetingRow: {
     minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
     marginBottom: 34,
   },
@@ -987,8 +1155,8 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 23,
     backgroundColor: palette.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   smallAvatarImage: {
     width: 46,
@@ -999,7 +1167,7 @@ const styles = StyleSheet.create({
   smallAvatarText: {
     color: palette.white,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   greetingText: {
     flex: 1,
@@ -1008,19 +1176,19 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 14,
     lineHeight: 18,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   name: {
     color: palette.ink,
     fontSize: 19,
     lineHeight: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 2,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 14,
   },
   recentSectionHeader: {
@@ -1030,11 +1198,11 @@ const styles = StyleSheet.create({
     color: palette.black,
     fontSize: 18,
     lineHeight: 27,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   seeMore: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     minHeight: 28,
   },
@@ -1042,7 +1210,7 @@ const styles = StyleSheet.create({
     color: palette.black,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   homeCourseRail: {
     gap: 12,
@@ -1053,26 +1221,26 @@ const styles = StyleSheet.create({
     minHeight: 210,
     borderRadius: 24,
     padding: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   quizCourseCard: {
-    width: '100%',
+    width: "100%",
     minHeight: 168,
     borderRadius: 24,
     padding: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   courseTitle: {
     color: palette.black,
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   courseAuthor: {
     color: palette.black,
     fontSize: 13,
     lineHeight: 20,
-    fontWeight: '400',
+    fontWeight: "400",
     marginTop: 2,
   },
   courseSummary: {
@@ -1082,37 +1250,37 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   courseMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
     marginTop: 18,
   },
   courseMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   courseMetaText: {
     color: palette.black,
     fontSize: 13,
     lineHeight: 20,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   statusPill: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     height: 28,
     borderRadius: 360,
     backgroundColor: palette.black,
     paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 'auto',
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: "auto",
   },
   statusText: {
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   savedContent: {
     paddingHorizontal: 16,
@@ -1128,7 +1296,7 @@ const styles = StyleSheet.create({
     paddingBottom: BOTTOM_NAV_CONTENT_PADDING,
   },
   profileHero: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 22,
   },
   profileAvatar: {
@@ -1136,8 +1304,8 @@ const styles = StyleSheet.create({
     height: 82,
     borderRadius: 41,
     backgroundColor: palette.lime,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 11,
   },
   profileAvatarImage: {
@@ -1150,21 +1318,21 @@ const styles = StyleSheet.create({
   profileAvatarText: {
     color: palette.navy,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   profileName: {
     color: palette.ink,
     fontSize: 19,
     lineHeight: 24,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   profileEmail: {
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '400',
-    textAlign: 'center',
+    fontWeight: "400",
+    textAlign: "center",
     marginTop: 2,
   },
   profileLoader: {
@@ -1179,31 +1347,31 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white,
   },
   panelHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   panelTitle: {
     color: palette.navy,
     fontSize: 17,
     lineHeight: 25,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
   },
   iconAction: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.lime,
   },
   inputLabel: {
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 6,
   },
   profileInput: {
@@ -1219,15 +1387,15 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 24,
     backgroundColor: palette.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 4,
   },
   primaryActionText: {
     color: palette.white,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   secondaryAction: {
     minHeight: 42,
@@ -1235,29 +1403,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.navy,
     paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 12,
   },
   secondaryActionText: {
     color: palette.navy,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   textAction: {
     minHeight: 32,
     borderRadius: 16,
     paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.lime,
   },
   textActionLabel: {
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   toggleRow: {
     minHeight: 54,
@@ -1266,9 +1434,9 @@ const styles = StyleSheet.create({
     borderColor: palette.navy,
     paddingLeft: 20,
     paddingRight: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
     marginBottom: 0,
   },
@@ -1276,8 +1444,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DCE7DA',
-    backgroundColor: '#F8FAF8',
+    borderColor: "#DCE7DA",
+    backgroundColor: "#F8FAF8",
     padding: 14,
   },
   timingHeader: {
@@ -1288,7 +1456,7 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 16,
     lineHeight: 22,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   timingHeaderText: {
     color: palette.muted,
@@ -1296,8 +1464,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   timingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     marginTop: 10,
     marginBottom: 8,
@@ -1313,11 +1481,11 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     paddingHorizontal: 14,
     color: palette.navy,
-    backgroundColor: '#FAFBFC',
+    backgroundColor: "#FAFBFC",
   },
   timingPreviewRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginTop: 6,
   },
@@ -1327,13 +1495,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: '#D9E5DA',
+    borderColor: "#D9E5DA",
   },
   timingPreviewText: {
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scheduleReveal: {
     marginTop: 12,
@@ -1346,9 +1514,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.lime,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   scheduleDisclosureCopy: {
@@ -1358,12 +1526,12 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   scheduleDetails: {
     marginTop: 10,
     borderRadius: 18,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: "#F8FAF8",
     paddingHorizontal: 12,
     paddingTop: 12,
   },
@@ -1372,13 +1540,13 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   listText: {
     color: palette.navy,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 6,
   },
   mutedText: {
@@ -1387,9 +1555,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: palette.line,
@@ -1407,7 +1575,7 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   scheduleRow: {
     borderBottomWidth: 1,
@@ -1417,16 +1585,16 @@ const styles = StyleSheet.create({
   },
   historyModalRoot: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     zIndex: 30,
     elevation: 30,
   },
   historyModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(8,18,69,0.34)',
+    backgroundColor: "rgba(8,18,69,0.34)",
   },
   historySheet: {
-    maxHeight: '82%',
+    maxHeight: "82%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     backgroundColor: palette.white,
@@ -1435,9 +1603,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   historySheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     gap: 16,
     marginBottom: 14,
   },
@@ -1445,27 +1613,27 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 20,
     lineHeight: 30,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   historyList: {
     paddingBottom: 28,
   },
   historyMoreText: {
     color: palette.muted,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
   },
   emptyState: {
     minHeight: 132,
-    width: '100%',
+    width: "100%",
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: palette.line,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
     paddingHorizontal: 16,
   },
@@ -1473,13 +1641,13 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   inlineLoading: {
     minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   inlineLoadingText: {
@@ -1490,9 +1658,9 @@ const styles = StyleSheet.create({
     color: palette.danger,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   disabled: {
     opacity: 0.62,

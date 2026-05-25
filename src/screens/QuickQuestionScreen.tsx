@@ -24,11 +24,6 @@ export const QuickQuestionScreen: React.FC<QuickQuestionScreenProps> = ({
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 
   const handleClose = (wasCorrect?: boolean) => {
-    void logEvent(analyticsEvents.lockscreen_quick_question_close, {
-      question_id: question?.id,
-      answered: selectedChoice ? 1 : 0,
-      is_correct: wasCorrect ? 1 : 0,
-    });
     onClose(wasCorrect);
   };
 

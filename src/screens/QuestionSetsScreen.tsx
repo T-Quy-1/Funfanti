@@ -425,10 +425,6 @@ export function QuestionSetsScreen({
   );
 
   const openFilters = () => {
-    void logEvent(analyticsEvents.question_sets_filter_open, {
-      active_filter_count: activeFilterCount,
-      search_active: searchActive ? 1 : 0,
-    });
     sheetTranslateY.setValue(0);
     setDraftFilters(filters);
     setDraftMinRatingText(formatRatingInputValue(filters.minRating));
@@ -456,11 +452,6 @@ export function QuestionSetsScreen({
   const toggleDraftQuestionRange = (range: (typeof questionRanges)[number]) => {
     setDraftFilters((current) => {
       const isSelected = matchesQuestionRange(current, range);
-      void logEvent(analyticsEvents.question_sets_filter_range_toggle, {
-        min_questions: range.minQuestions,
-        max_questions: range.maxQuestions,
-        selected: isSelected ? 0 : 1,
-      });
       return isSelected
         ? withoutQuestionRange(current)
         : {
@@ -522,10 +513,6 @@ export function QuestionSetsScreen({
   const toggleDraftSort = (sort: QuestionSetSort) => {
     setDraftFilters((current) => {
       const isSelected = current.sort === sort;
-      void logEvent(analyticsEvents.question_sets_filter_sort_toggle, {
-        sort,
-        selected: isSelected ? 0 : 1,
-      });
       return isSelected ? withoutSort(current) : { ...current, sort };
     });
   };
@@ -546,9 +533,6 @@ export function QuestionSetsScreen({
   };
 
   const resetDraftFilters = () => {
-    void logEvent(analyticsEvents.question_sets_filter_reset, {
-      had_active_filters: hasActiveQuestionSetFilters(draftFilters) ? 1 : 0,
-    });
     setDraftFilters({});
     setDraftMinRatingText("");
     setDraftMaxRatingText("");
@@ -574,7 +558,9 @@ export function QuestionSetsScreen({
             onChangeText={onChangeSearchQuery}
             onSubmitEditing={() => {
               const trimmed = searchQuery.trim();
+              const normalizedQuery = trimmed.toLowerCase().slice(0, 64);
               void logEvent(analyticsEvents.question_sets_search_submit, {
+                search_query: normalizedQuery,
                 query_length: trimmed.length,
                 active_filter_count: activeFilterCount,
               });
