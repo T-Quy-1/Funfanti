@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Animated,
   Image,
-  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -144,6 +143,37 @@ const createCardFromBookmark = (bookmark: UserBookmark, questionSets: QuestionSe
   };
 };
 
+const createCardFromActivity = (
+  item: UserActivity,
+  questionSets: QuestionSetCard[],
+  bookmarkedQuestionSetIds: string[],
+): QuestionSetCard => {
+  const matched = questionSets.find((questionSet) => questionSet.id === item.questionSet.id);
+  if (matched) {
+    return matched;
+  }
+
+  return {
+    id: item.questionSet.id,
+    title: item.questionSet.title,
+    topic: item.questionSet.topic,
+    subtitle: `${item.status} - ${formatDate(item.createdAt)} - ${formatTime(item.totalTimeMs)}`,
+    description: `${item.questionSet.title} activity from ${formatDate(item.createdAt)}.`,
+    progress: item.status.toLowerCase() === 'completed' ? 1 : 0,
+    accent: '#E9FBFD',
+    artTone: '#DDF7FA',
+    imageUrl: undefined,
+    imageSource: undefined,
+    tags: [],
+    questionCount: 0,
+    avgRating: 0,
+    reviewCount: 0,
+    sessionCount: 0,
+    isFeatured: false,
+    isBookmarked: bookmarkedQuestionSetIds.includes(item.questionSet.id),
+  };
+};
+
 export function MainFlow(props: MainFlowProps) {
   const {
     screen,
@@ -243,9 +273,9 @@ export function MainFlow(props: MainFlowProps) {
     return questionSets.filter((questionSet) => questionSet.isFeatured).slice(0, 5);
   }, [questionSets]);
 
-  const recentDistinctActivity = useMemo(() => {
+  const recentDistinctQuestionSets = useMemo(() => {
     const seenQuestionSetIds = new Set<string>();
-    const distinctItems: UserActivity[] = [];
+    const distinctItems: QuestionSetCard[] = [];
 
     for (const item of activity) {
       if (seenQuestionSetIds.has(item.questionSet.id)) {
@@ -253,7 +283,7 @@ export function MainFlow(props: MainFlowProps) {
       }
 
       seenQuestionSetIds.add(item.questionSet.id);
-      distinctItems.push(item);
+      distinctItems.push(createCardFromActivity(item, questionSets, bookmarkedQuestionSetIds));
 
       if (distinctItems.length === 2) {
         break;
@@ -261,7 +291,7 @@ export function MainFlow(props: MainFlowProps) {
     }
 
     return distinctItems;
-  }, [activity]);
+  }, [activity, bookmarkedQuestionSetIds, questionSets]);
 
   const savedQuestionSets = useMemo(
     () => bookmarks.map((bookmark) => createCardFromBookmark(bookmark, questionSets)),
@@ -337,19 +367,45 @@ export function MainFlow(props: MainFlowProps) {
     );
   };
 
-  const renderActivityRow = (item: UserActivity, compact = false) => (
-    <View key={item.id} style={[styles.activityRow, compact && styles.activityRowCompact]}>
-      <View style={styles.activityCopy}>
-        <Text style={styles.listText}>{item.questionSet.title}</Text>
-        <Text style={styles.mutedText}>
-          {item.status} - {formatDate(item.createdAt)} - {formatTime(item.totalTimeMs)}
+  const renderActivityRow = (item: UserActivity, compact = false, onPress?: () => void) => {
+    const rowContent = (
+      <>
+        <View style={styles.activityCopy}>
+          <Text style={styles.listText}>{item.questionSet.title}</Text>
+          <Text style={styles.mutedText}>
+            {item.status} - {formatDate(item.createdAt)} - {formatTime(item.totalTimeMs)}
+          </Text>
+        </View>
+        <Text style={styles.activityScore}>
+          {item.score === null ? '--' : `${item.score}%`}
         </Text>
+      </>
+    );
+
+    if (onPress) {
+      return (
+        <Pressable
+          key={item.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Open full activity history from ${item.questionSet.title}`}
+          style={({ pressed }) => [
+            styles.activityRow,
+            compact && styles.activityRowCompact,
+            pressed && styles.pressed,
+          ]}
+          onPress={onPress}
+        >
+          {rowContent}
+        </Pressable>
+      );
+    }
+
+    return (
+      <View key={item.id} style={[styles.activityRow, compact && styles.activityRowCompact]}>
+        {rowContent}
       </View>
-      <Text style={styles.activityScore}>
-        {item.score === null ? '--' : `${item.score}%`}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   const openActivityHistory = () => {
     setVisibleActivityCount(10);
@@ -375,22 +431,27 @@ export function MainFlow(props: MainFlowProps) {
     }
   };
 
-  const renderActivityHistoryModal = () => (
-    <Modal
-      animationType="fade"
-      transparent
-      visible={activityModalVisible}
-      onRequestClose={closeActivityHistory}
-    >
+  const renderActivityHistoryModal = () =>
+    activityModalVisible ? (
       <View style={styles.historyModalRoot}>
-        <Pressable style={styles.historyModalBackdrop} onPress={closeActivityHistory} />
+        <Pressable
+          accessibilityLabel="Dismiss activity history overlay"
+          accessibilityRole="button"
+          style={styles.historyModalBackdrop}
+          onPress={closeActivityHistory}
+        />
         <View style={styles.historySheet}>
           <View style={styles.historySheetHeader}>
             <View>
               <Text style={styles.historySheetTitle}>Activity History</Text>
               <Text style={styles.mutedText}>{activity.length} recorded play sessions</Text>
             </View>
-            <Pressable style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]} onPress={closeActivityHistory}>
+            <Pressable
+              accessibilityLabel="Close activity history"
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}
+              onPress={closeActivityHistory}
+            >
               <Feather name="x" size={18} color={palette.navy} />
             </Pressable>
           </View>
@@ -414,8 +475,7 @@ export function MainFlow(props: MainFlowProps) {
           </ScrollView>
         </View>
       </View>
-    </Modal>
-  );
+    ) : null;
 
   const renderHome = () => (
     <View style={styles.page}>
@@ -477,10 +537,14 @@ export function MainFlow(props: MainFlowProps) {
           </Pressable>
         </View>
 
-        {recentDistinctActivity.length > 0 ? (
-          <View style={styles.recentList}>
-            {recentDistinctActivity.map((item) => renderActivityRow(item, true))}
-          </View>
+        {recentDistinctQuestionSets.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.homeCourseRail}
+          >
+            {recentDistinctQuestionSets.map((set, index) => renderCourseCard(set, index, 'horizontal'))}
+          </ScrollView>
         ) : (
           <View style={styles.emptyState}>
             <Feather name="clock" size={22} color={palette.primary} />
@@ -714,16 +778,21 @@ export function MainFlow(props: MainFlowProps) {
         </View>
 
         <View style={styles.panel}>
-          <View style={styles.panelHeaderRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open full activity history"
+            style={({ pressed }) => [styles.panelHeaderRow, pressed && styles.pressed]}
+            onPress={openActivityHistory}
+          >
             <Text style={styles.panelTitle}>Activity History</Text>
             {activity.length > 2 ? (
-              <Pressable style={({ pressed }) => [styles.textAction, pressed && styles.pressed]} onPress={openActivityHistory}>
+              <View style={styles.textAction}>
                 <Text style={styles.textActionLabel}>See All</Text>
-              </Pressable>
+              </View>
             ) : null}
-          </View>
+          </Pressable>
           {activity.length > 0 ? (
-            activity.slice(0, 2).map((item) => renderActivityRow(item))
+            activity.slice(0, 2).map((item) => renderActivityRow(item, false, openActivityHistory))
           ) : (
             <Text style={styles.mutedText}>Completed quiz attempts will appear here.</Text>
           )}
@@ -870,14 +939,6 @@ const styles = StyleSheet.create({
   homeCourseRail: {
     gap: 12,
     paddingRight: 28,
-  },
-  recentList: {
-    borderWidth: 1.5,
-    borderColor: palette.line,
-    borderRadius: 24,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    backgroundColor: palette.white,
   },
   homeCourseCard: {
     width: 301,
@@ -1184,8 +1245,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   historyModalRoot: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
+    zIndex: 30,
+    elevation: 30,
   },
   historyModalBackdrop: {
     ...StyleSheet.absoluteFillObject,

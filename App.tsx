@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { IntroFlow } from './src/screens/IntroFlow';
 import { AuthFlow } from './src/screens/AuthFlow';
 import { MainFlow } from './src/screens/MainFlow';
+import { hasActiveQuestionSetFilters } from './src/screens/QuestionSetsScreen';
 import {
   onboardingSlides,
   type QuestionSetCard,
@@ -59,7 +60,7 @@ export default function App() {
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
   const [questionSetSearchQuery, setQuestionSetSearchQuery] = useState('');
   const [submittedQuestionSetSearchQuery, setSubmittedQuestionSetSearchQuery] = useState('');
-  const [questionSetFilters, setQuestionSetFilters] = useState<QuestionSetFilters>({ isFeatured: true });
+  const [questionSetFilters, setQuestionSetFilters] = useState<QuestionSetFilters>({});
   const [bookmarkActionLoadingId, setBookmarkActionLoadingId] = useState<string | null>(null);
   const [questionSetActionLoadingId, setQuestionSetActionLoadingId] = useState<string | null>(null);
   const [questionSetActionError, setQuestionSetActionError] = useState<string | null>(null);
@@ -166,11 +167,14 @@ export default function App() {
       setQuestionSetsLoading(true);
       setQuestionSetsError(null);
 
+      const hasActiveFilters = hasActiveQuestionSetFilters(questionSetFilters);
+      const shouldShowFeatured = !search && !hasActiveFilters;
+
       void funfantiApi
         .getQuestionSets(
           {
             ...questionSetFilters,
-            isFeatured: true,
+            ...(shouldShowFeatured ? { isFeatured: true } : {}),
             search: search || undefined,
           },
           authToken,
@@ -458,7 +462,7 @@ export default function App() {
       setQuestionSetSearchQuery(submittedSearch);
     }
 
-    setQuestionSetFilters({ ...nextFilters, isFeatured: true });
+    setQuestionSetFilters(nextFilters);
   };
 
   const toggleQuestionSetBookmark = async (questionSet: QuestionSetCard) => {

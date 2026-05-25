@@ -99,7 +99,7 @@ const hasRatingFilter = (filters: QuestionSetFilters) =>
   (filters.minRating !== undefined && filters.minRating > 0) ||
   (filters.maxRating !== undefined && filters.maxRating < 5);
 
-const hasActiveQuestionSetFilters = (filters: QuestionSetFilters) =>
+export const hasActiveQuestionSetFilters = (filters: QuestionSetFilters) =>
   Boolean(
     filters.tags?.length ||
       filters.minQuestions !== undefined ||
