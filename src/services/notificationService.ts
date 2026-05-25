@@ -1,10 +1,10 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import { funfantiApi } from './funfantiApi';
-import { QuizQuestion } from '../data/funfantiContent';
-import { analyticsEvents, logEvent } from './analytics';
-import { getUpcomingNotificationCheckDates } from '../utils/notificationPreferences';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
+import { funfantiApi } from "./funfantiApi";
+import { QuizQuestion } from "../data/funfantiContent";
+import { analyticsEvents, logEvent } from "./analytics";
+import { getUpcomingNotificationCheckDates } from "../utils/notificationPreferences";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -34,29 +34,38 @@ export function markQuestionAsCorrect(questionId: string): void {
 
 export const notificationService = {
   async requestPermissionsAsync() {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: "#FF231F7C",
       });
     }
 
     if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
+      if (existingStatus !== "granted") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-      return finalStatus === 'granted';
+      void logEvent(analyticsEvents.lockscreen_permission, {
+        granted: finalStatus === "granted" ? 1 : 0,
+        status: finalStatus,
+      });
+      return finalStatus === "granted";
     }
+    void logEvent(analyticsEvents.lockscreen_permission, {
+      granted: 0,
+      status: "unavailable",
+    });
     return false;
   },
 
   async clearAllScheduledNotifications() {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       return;
     }
 
@@ -68,7 +77,7 @@ export const notificationService = {
     lockScreenTiming?: unknown,
     notificationOverlay = true,
   ) {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       return;
     }
 
@@ -77,7 +86,11 @@ export const notificationService = {
 
     if (!accessToken || !notificationOverlay) return;
 
-    const upcomingCheckDates = getUpcomingNotificationCheckDates(new Date(), lockScreenTiming, 10);
+    const upcomingCheckDates = getUpcomingNotificationCheckDates(
+      new Date(),
+      lockScreenTiming,
+      10,
+    );
     if (upcomingCheckDates.length === 0) {
       return;
     }
@@ -113,7 +126,10 @@ export const notificationService = {
     });
 
     // 6. Schedule checks every 15 minutes, only inside configured intervals.
-    const scheduledCount = Math.min(upcomingCheckDates.length, allQuestions.length);
+    const scheduledCount = Math.min(
+      upcomingCheckDates.length,
+      allQuestions.length,
+    );
     for (let i = 0; i < scheduledCount; i++) {
       const triggerDate = upcomingCheckDates[i];
 
@@ -121,7 +137,7 @@ export const notificationService = {
 
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Time for a Quick Question!',
+          title: "Time for a Quick Question!",
           body: question.prompt,
           data: { question },
           sound: true,
