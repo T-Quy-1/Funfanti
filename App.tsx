@@ -9,6 +9,7 @@ import {
   type QuestionSetCard,
   type QuizQuestion,
   type ScreenKey,
+  type QuestionSetFilters,
 } from './src/data/funfantiContent';
 import * as Notifications from 'expo-notifications';
 import { notificationService, markQuestionAsCorrect } from './src/services/notificationService';
@@ -69,6 +70,7 @@ export default function App() {
   const [schedules, setSchedules] = useState<NotificationSchedule[]>([]);
 
   const [questionSets, setQuestionSets] = useState<QuestionSetCard[]>([]);
+  const [discoverFilters, setDiscoverFilters] = useState<QuestionSetFilters>({ isFeatured: true });
   const [questionSetTags, setQuestionSetTags] = useState<string[]>([]);
   const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
@@ -202,7 +204,7 @@ export default function App() {
       setQuestionSetsError(null);
 
       void funfantiApi
-        .getQuestionSets({}, authToken)
+        .getQuestionSets(discoverFilters, authToken)
         .then((nextQuestionSets) => {
           if (questionSetFetchId.current !== fetchId) {
             return;
@@ -230,7 +232,7 @@ export default function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [authToken]);
+  }, [authToken, discoverFilters]);
 
   useEffect(() => {
     if (authToken) {
@@ -723,6 +725,7 @@ export default function App() {
       questionSetTags={questionSetTags}
       questionSetsLoading={questionSetsLoading}
       questionSetsError={questionSetsError}
+      onUpdateDiscoverFilters={setDiscoverFilters}
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}

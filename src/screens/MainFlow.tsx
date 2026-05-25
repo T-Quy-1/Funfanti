@@ -22,7 +22,7 @@ import {
   QuestionSetQuizScreen,
   QuestionSetSummaryScreen,
 } from './QuestionSetPlayFlow';
-import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
+import type { QuestionSetCard, QuizQuestion, QuestionSetFilters } from '../data/funfantiContent';
 import type {
   NotificationSchedule,
   QuizSessionResult,
@@ -92,6 +92,7 @@ type MainFlowProps = {
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
   onUpdateLockScreenTiming: (payload: LockScreenTimingPreference) => void;
+  onUpdateDiscoverFilters: (filters: QuestionSetFilters) => void;
 };
 
 const palette = {
@@ -232,6 +233,7 @@ export function MainFlow(props: MainFlowProps) {
     onRefreshUserSpace,
     onUpdateNotificationOverlay,
     onUpdateLockScreenTiming,
+    onUpdateDiscoverFilters,
   } = props;
 
   const displayName = profile?.displayName?.trim() || 'Funfanti Learner';
@@ -601,6 +603,7 @@ export function MainFlow(props: MainFlowProps) {
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}
+      onFiltersChange={onUpdateDiscoverFilters}
       onSelectTab={onSelectTab}
       onPlayQuestionSet={onStartQuestionSet}
       onToggleBookmark={onToggleQuestionSetBookmark}
