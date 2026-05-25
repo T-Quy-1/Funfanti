@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -13,42 +13,43 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import type { ImageSourcePropType } from 'react-native';
-import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from '../components';
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import type { ImageSourcePropType } from "react-native";
+import { BottomNav, BOTTOM_NAV_CONTENT_PADDING } from "../components";
 import type {
   QuestionSetCard,
   QuestionSetFilters,
   QuestionSetSort,
-} from '../data/funfantiContent';
-import type { AppTab } from './screenTypes';
+} from "../data/funfantiContent";
+import type { AppTab } from "./screenTypes";
+import { analyticsEvents, logEvent } from "../services/analytics";
 
 const palette = {
-  primary: '#269D54',
-  primaryLight: '#38DE90',
-  navy: '#081245',
-  white: '#FFFFFF',
-  offWhite: '#F9F9F9',
-  muted: '#8D8D8D',
-  sheet: '#EAFBFC',
-  border: '#081245',
+  primary: "#269D54",
+  primaryLight: "#38DE90",
+  navy: "#081245",
+  white: "#FFFFFF",
+  offWhite: "#F9F9F9",
+  muted: "#8D8D8D",
+  sheet: "#EAFBFC",
+  border: "#081245",
 };
 
 const questionRanges = [
-  { label: '<10 questions', minQuestions: 1, maxQuestions: 9 },
-  { label: '10-25 questions', minQuestions: 10, maxQuestions: 25 },
-  { label: '25-50 questions', minQuestions: 25, maxQuestions: 50 },
-  { label: 'Over 50', minQuestions: 51, maxQuestions: undefined },
+  { label: "<10 questions", minQuestions: 1, maxQuestions: 9 },
+  { label: "10-25 questions", minQuestions: 10, maxQuestions: 25 },
+  { label: "25-50 questions", minQuestions: 25, maxQuestions: 50 },
+  { label: "Over 50", minQuestions: 51, maxQuestions: undefined },
 ];
 
 const sortOptions: Array<{ label: string; value: QuestionSetSort }> = [
-  { label: 'Best Rating', value: 'rating' },
-  { label: 'Most Popular', value: 'popular' },
-  { label: 'Latest', value: 'latest' },
+  { label: "Best Rating", value: "rating" },
+  { label: "Most Popular", value: "popular" },
+  { label: "Latest", value: "latest" },
 ];
 
-type RatingFilterKey = 'minRating' | 'maxRating';
+type RatingFilterKey = "minRating" | "maxRating";
 
 type QuestionSetsScreenProps = {
   activeTab: AppTab;
@@ -69,19 +70,26 @@ type QuestionSetsScreenProps = {
   onToggleBookmark: (questionSet: QuestionSetCard) => void;
 };
 
-const matchesQuestionRange = (filters: QuestionSetFilters, range: (typeof questionRanges)[number]) =>
-  filters.minQuestions === range.minQuestions && filters.maxQuestions === range.maxQuestions;
+const matchesQuestionRange = (
+  filters: QuestionSetFilters,
+  range: (typeof questionRanges)[number],
+) =>
+  filters.minQuestions === range.minQuestions &&
+  filters.maxQuestions === range.maxQuestions;
 
-const clampRating = (value: number) => Math.min(5, Math.max(0, Math.round(value * 10) / 10));
+const clampRating = (value: number) =>
+  Math.min(5, Math.max(0, Math.round(value * 10) / 10));
 
-const formatRatingInputValue = (value?: number) => (value === undefined ? '' : value.toFixed(1));
+const formatRatingInputValue = (value?: number) =>
+  value === undefined ? "" : value.toFixed(1);
 
-const normalizeRatingText = (value: string) => value.replace(',', '.').trim();
+const normalizeRatingText = (value: string) => value.replace(",", ".").trim();
 
-const isDraftRatingText = (value: string) => value === '' || /^\d?(\.\d?)?$/.test(value);
+const isDraftRatingText = (value: string) =>
+  value === "" || /^\d?(\.\d?)?$/.test(value);
 
 const parseRatingText = (value: string) => {
-  if (value === '') {
+  if (value === "") {
     return undefined;
   }
 
@@ -93,7 +101,8 @@ const parseRatingText = (value: string) => {
   return clampRating(rating);
 };
 
-const defaultRatingForKey = (key: RatingFilterKey) => (key === 'minRating' ? 0 : 5);
+const defaultRatingForKey = (key: RatingFilterKey) =>
+  key === "minRating" ? 0 : 5;
 
 const hasRatingFilter = (filters: QuestionSetFilters) =>
   (filters.minRating !== undefined && filters.minRating > 0) ||
@@ -102,10 +111,10 @@ const hasRatingFilter = (filters: QuestionSetFilters) =>
 export const hasActiveQuestionSetFilters = (filters: QuestionSetFilters) =>
   Boolean(
     filters.tags?.length ||
-      filters.minQuestions !== undefined ||
-      filters.maxQuestions !== undefined ||
-      hasRatingFilter(filters) ||
-      filters.sort,
+    filters.minQuestions !== undefined ||
+    filters.maxQuestions !== undefined ||
+    hasRatingFilter(filters) ||
+    filters.sort,
   );
 
 const splitTagsIntoRows = (tags: string[]) => {
@@ -113,7 +122,9 @@ const splitTagsIntoRows = (tags: string[]) => {
   return [tags.slice(0, rowBreak), tags.slice(rowBreak)];
 };
 
-const withoutQuestionRange = (filters: QuestionSetFilters): QuestionSetFilters => {
+const withoutQuestionRange = (
+  filters: QuestionSetFilters,
+): QuestionSetFilters => {
   const { minQuestions, maxQuestions, ...rest } = filters;
   return rest;
 };
@@ -123,7 +134,9 @@ const withoutSort = (filters: QuestionSetFilters): QuestionSetFilters => {
   return rest;
 };
 
-const normalizeRatingRange = (filters: QuestionSetFilters): QuestionSetFilters => {
+const normalizeRatingRange = (
+  filters: QuestionSetFilters,
+): QuestionSetFilters => {
   let normalizedFilters = filters;
 
   if (
@@ -146,7 +159,9 @@ const normalizeRatingRange = (filters: QuestionSetFilters): QuestionSetFilters =
   };
 };
 
-const resolveImageSource = (questionSet: QuestionSetCard): ImageSourcePropType | undefined => {
+const resolveImageSource = (
+  questionSet: QuestionSetCard,
+): ImageSourcePropType | undefined => {
   if (questionSet.imageSource) {
     return questionSet.imageSource;
   }
@@ -178,8 +193,19 @@ function QuestionSetCardView({
 
   return (
     <View style={styles.questionCard}>
-      <View style={[styles.questionCardImage, { backgroundColor: questionSet.artTone }]}>
-        {imageSource ? <Image source={imageSource} style={styles.questionCardImageAsset} resizeMode="cover" /> : null}
+      <View
+        style={[
+          styles.questionCardImage,
+          { backgroundColor: questionSet.artTone },
+        ]}
+      >
+        {imageSource ? (
+          <Image
+            source={imageSource}
+            style={styles.questionCardImageAsset}
+            resizeMode="cover"
+          />
+        ) : null}
         <View style={styles.imageOverlay} />
         <Text style={styles.questionCardTitle}>{questionSet.title}</Text>
       </View>
@@ -195,7 +221,9 @@ function QuestionSetCardView({
         </View>
 
         <View style={styles.cardMetaRow}>
-          <Text style={styles.questionCount}>{questionSet.questionCount} questions</Text>
+          <Text style={styles.questionCount}>
+            {questionSet.questionCount} questions
+          </Text>
           <Pressable
             accessibilityLabel={`About ${questionSet.title} question count`}
             accessibilityRole="button"
@@ -210,14 +238,17 @@ function QuestionSetCardView({
           </Pressable>
           <View style={styles.ratingPill}>
             <Feather name="star" size={12} color={palette.primary} />
-            <Text style={styles.ratingText}>{questionSet.avgRating.toFixed(1)}</Text>
+            <Text style={styles.ratingText}>
+              {questionSet.avgRating.toFixed(1)}
+            </Text>
           </View>
         </View>
 
         {countInfoVisible ? (
           <View style={styles.cardInfoPanel}>
             <Text style={styles.cardInfoText}>
-              This set includes {questionSet.questionCount} questions. {questionSet.subtitle}
+              This set includes {questionSet.questionCount} questions.{" "}
+              {questionSet.subtitle}
             </Text>
             <Feather name="chevrons-up" size={18} color={palette.navy} />
           </View>
@@ -226,10 +257,16 @@ function QuestionSetCardView({
         <View style={styles.cardActions}>
           <Pressable
             disabled={loading}
-            style={({ pressed }) => [styles.playButton, pressed && styles.pressed, loading && styles.disabledButton]}
+            style={({ pressed }) => [
+              styles.playButton,
+              pressed && styles.pressed,
+              loading && styles.disabledButton,
+            ]}
             onPress={onPlay}
           >
-            <Text style={styles.playButtonText}>{loading ? 'Loading' : 'Play'}</Text>
+            <Text style={styles.playButtonText}>
+              {loading ? "Loading" : "Play"}
+            </Text>
           </Pressable>
           <Pressable
             disabled={bookmarkLoading}
@@ -242,12 +279,17 @@ function QuestionSetCardView({
             onPress={onToggleBookmark}
           >
             <Feather
-              name={bookmarked ? 'check-circle' : 'bookmark'}
+              name={bookmarked ? "check-circle" : "bookmark"}
               size={16}
               color={bookmarked ? palette.white : palette.navy}
             />
-            <Text style={[styles.saveButtonText, bookmarked && styles.saveButtonTextActive]}>
-              {bookmarkLoading ? 'Saving' : bookmarked ? 'Saved' : 'Save'}
+            <Text
+              style={[
+                styles.saveButtonText,
+                bookmarked && styles.saveButtonTextActive,
+              ]}
+            >
+              {bookmarkLoading ? "Saving" : bookmarked ? "Saved" : "Save"}
             </Text>
           </Pressable>
         </View>
@@ -269,11 +311,21 @@ function ChoiceChip({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
-      style={({ pressed }) => [styles.choiceChip, active && styles.choiceChipActive, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.choiceChip,
+        active && styles.choiceChipActive,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
     >
-      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{label}</Text>
-      {active ? <Feather name="check-circle" size={14} color={palette.navy} /> : null}
+      <Text
+        style={[styles.choiceChipText, active && styles.choiceChipTextActive]}
+      >
+        {label}
+      </Text>
+      {active ? (
+        <Feather name="check-circle" size={14} color={palette.navy} />
+      ) : null}
     </Pressable>
   );
 }
@@ -298,9 +350,14 @@ export function QuestionSetsScreen({
 }: QuestionSetsScreenProps) {
   const [filterVisible, setFilterVisible] = useState(false);
   const [draftFilters, setDraftFilters] = useState<QuestionSetFilters>(filters);
-  const [draftMinRatingText, setDraftMinRatingText] = useState(formatRatingInputValue(filters.minRating));
-  const [draftMaxRatingText, setDraftMaxRatingText] = useState(formatRatingInputValue(filters.maxRating));
-  const [questionCountHelpVisible, setQuestionCountHelpVisible] = useState(false);
+  const [draftMinRatingText, setDraftMinRatingText] = useState(
+    formatRatingInputValue(filters.minRating),
+  );
+  const [draftMaxRatingText, setDraftMaxRatingText] = useState(
+    formatRatingInputValue(filters.maxRating),
+  );
+  const [questionCountHelpVisible, setQuestionCountHelpVisible] =
+    useState(false);
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
   const searchActive = submittedSearchQuery.trim().length > 0;
@@ -308,14 +365,23 @@ export function QuestionSetsScreen({
   const showFeatured = !searchActive && !hasActiveFilters;
 
   const availableTags = useMemo(
-    () => Array.from(new Set(questionSetTags.map((tag) => tag.trim()).filter(Boolean))),
+    () =>
+      Array.from(
+        new Set(questionSetTags.map((tag) => tag.trim()).filter(Boolean)),
+      ),
     [questionSetTags],
   );
-  const tagRows = useMemo(() => splitTagsIntoRows(availableTags), [availableTags]);
+  const tagRows = useMemo(
+    () => splitTagsIntoRows(availableTags),
+    [availableTags],
+  );
 
   const activeFilterCount = useMemo(() => {
     const tagCount = filters.tags?.length ?? 0;
-    const rangeCount = filters.minQuestions !== undefined || filters.maxQuestions !== undefined ? 1 : 0;
+    const rangeCount =
+      filters.minQuestions !== undefined || filters.maxQuestions !== undefined
+        ? 1
+        : 0;
     const ratingCount = hasRatingFilter(filters) ? 1 : 0;
     const sortCount = filters.sort ? 1 : 0;
     return tagCount + rangeCount + ratingCount + sortCount;
@@ -336,7 +402,8 @@ export function QuestionSetsScreen({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gestureState) =>
-          gestureState.dy > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+          gestureState.dy > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
         onPanResponderMove: (_event, gestureState) => {
           sheetTranslateY.setValue(Math.max(0, gestureState.dy));
         },
@@ -358,6 +425,10 @@ export function QuestionSetsScreen({
   );
 
   const openFilters = () => {
+    void logEvent(analyticsEvents.question_sets_filter_open, {
+      active_filter_count: activeFilterCount,
+      search_active: searchActive ? 1 : 0,
+    });
     sheetTranslateY.setValue(0);
     setDraftFilters(filters);
     setDraftMinRatingText(formatRatingInputValue(filters.minRating));
@@ -369,23 +440,35 @@ export function QuestionSetsScreen({
   const toggleDraftTag = (tag: string) => {
     setDraftFilters((current) => {
       const tags = current.tags ?? [];
+      const isSelected = tags.includes(tag);
       const nextTags = tags.includes(tag)
         ? tags.filter((currentTag) => currentTag !== tag)
         : [...tags, tag];
+      void logEvent(analyticsEvents.question_sets_filter_tag_toggle, {
+        tag,
+        selected: isSelected ? 0 : 1,
+        tag_count: nextTags.length,
+      });
       return { ...current, tags: nextTags };
     });
   };
 
   const toggleDraftQuestionRange = (range: (typeof questionRanges)[number]) => {
-    setDraftFilters((current) =>
-      matchesQuestionRange(current, range)
+    setDraftFilters((current) => {
+      const isSelected = matchesQuestionRange(current, range);
+      void logEvent(analyticsEvents.question_sets_filter_range_toggle, {
+        min_questions: range.minQuestions,
+        max_questions: range.maxQuestions,
+        selected: isSelected ? 0 : 1,
+      });
+      return isSelected
         ? withoutQuestionRange(current)
         : {
             ...current,
             minQuestions: range.minQuestions,
             maxQuestions: range.maxQuestions,
-          },
-    );
+          };
+    });
   };
 
   const updateDraftRating = (key: RatingFilterKey, value: string) => {
@@ -397,9 +480,11 @@ export function QuestionSetsScreen({
 
     const nextRating = parseRatingText(nextText);
     const displayText =
-      nextRating !== undefined && Number(nextText) !== nextRating ? formatRatingInputValue(nextRating) : nextText;
+      nextRating !== undefined && Number(nextText) !== nextRating
+        ? formatRatingInputValue(nextRating)
+        : nextText;
 
-    if (key === 'minRating') {
+    if (key === "minRating") {
       setDraftMinRatingText(displayText);
     } else {
       setDraftMaxRatingText(displayText);
@@ -412,11 +497,15 @@ export function QuestionSetsScreen({
   };
 
   const stepDraftRating = (key: RatingFilterKey, direction: -1 | 1) => {
-    const currentText = key === 'minRating' ? draftMinRatingText : draftMaxRatingText;
-    const currentValue = parseRatingText(currentText) ?? draftFilters[key] ?? defaultRatingForKey(key);
+    const currentText =
+      key === "minRating" ? draftMinRatingText : draftMaxRatingText;
+    const currentValue =
+      parseRatingText(currentText) ??
+      draftFilters[key] ??
+      defaultRatingForKey(key);
     const nextRating = clampRating(currentValue + direction * 0.1);
 
-    if (key === 'minRating') {
+    if (key === "minRating") {
       setDraftMinRatingText(formatRatingInputValue(nextRating));
     } else {
       setDraftMaxRatingText(formatRatingInputValue(nextRating));
@@ -431,19 +520,38 @@ export function QuestionSetsScreen({
   };
 
   const toggleDraftSort = (sort: QuestionSetSort) => {
-    setDraftFilters((current) => (current.sort === sort ? withoutSort(current) : { ...current, sort }));
+    setDraftFilters((current) => {
+      const isSelected = current.sort === sort;
+      void logEvent(analyticsEvents.question_sets_filter_sort_toggle, {
+        sort,
+        selected: isSelected ? 0 : 1,
+      });
+      return isSelected ? withoutSort(current) : { ...current, sort };
+    });
   };
 
   const applyDraftFilters = () => {
     const normalizedFilters = normalizeRatingRange(draftFilters);
+    void logEvent(analyticsEvents.question_sets_filter_apply, {
+      tag_count: normalizedFilters.tags?.length ?? 0,
+      min_questions: normalizedFilters.minQuestions,
+      max_questions: normalizedFilters.maxQuestions,
+      min_rating: normalizedFilters.minRating,
+      max_rating: normalizedFilters.maxRating,
+      sort: normalizedFilters.sort,
+      search_active: searchActive ? 1 : 0,
+    });
     onApplyFilters(normalizedFilters);
     dismissFilterSheet();
   };
 
   const resetDraftFilters = () => {
+    void logEvent(analyticsEvents.question_sets_filter_reset, {
+      had_active_filters: hasActiveQuestionSetFilters(draftFilters) ? 1 : 0,
+    });
     setDraftFilters({});
-    setDraftMinRatingText('');
-    setDraftMaxRatingText('');
+    setDraftMinRatingText("");
+    setDraftMaxRatingText("");
     setQuestionCountHelpVisible(false);
   };
 
@@ -464,11 +572,24 @@ export function QuestionSetsScreen({
             placeholderTextColor={palette.muted}
             value={searchQuery}
             onChangeText={onChangeSearchQuery}
-            onSubmitEditing={() => onApplyFilters({ ...filters, search: searchQuery })}
+            onSubmitEditing={() => {
+              const trimmed = searchQuery.trim();
+              void logEvent(analyticsEvents.question_sets_search_submit, {
+                query_length: trimmed.length,
+                active_filter_count: activeFilterCount,
+              });
+              onApplyFilters({ ...filters, search: searchQuery });
+            }}
           />
           <Feather name="search" size={25} color={palette.navy} />
         </View>
-        <Pressable style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]} onPress={openFilters}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.filterButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={openFilters}
+        >
           <Feather name="sliders" size={23} color={palette.white} />
           {activeFilterCount > 0 ? (
             <View style={styles.filterBadge}>
@@ -482,25 +603,37 @@ export function QuestionSetsScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.resultsTitle, !showFeatured && styles.resultsTitleSearch]}>
+        <Text
+          style={[
+            styles.resultsTitle,
+            !showFeatured && styles.resultsTitleSearch,
+          ]}
+        >
           {showFeatured ? (
-            'Featured'
+            "Featured"
           ) : (
             <>
-              Found <Text style={styles.resultsCount}>{questionSets.length}</Text>{' '}
-              {questionSets.length === 1 ? 'result' : 'results'} ...
+              Found{" "}
+              <Text style={styles.resultsCount}>{questionSets.length}</Text>{" "}
+              {questionSets.length === 1 ? "result" : "results"} ...
             </>
           )}
         </Text>
 
-        {questionSetsError ? <Text style={styles.errorText}>{questionSetsError}</Text> : null}
-        {questionSetsLoading ? <Text style={styles.loadingText}>Refreshing question sets...</Text> : null}
+        {questionSetsError ? (
+          <Text style={styles.errorText}>{questionSetsError}</Text>
+        ) : null}
+        {questionSetsLoading ? (
+          <Text style={styles.loadingText}>Refreshing question sets...</Text>
+        ) : null}
 
         {questionSets.length === 0 && !questionSetsLoading ? (
           <View style={styles.emptyState}>
             <Feather name="search" size={26} color={palette.primary} />
             <Text style={styles.emptyTitle}>No matching sets</Text>
-            <Text style={styles.emptyText}>Try a broader search or clear one of the filters.</Text>
+            <Text style={styles.emptyText}>
+              Try a broader search or clear one of the filters.
+            </Text>
           </View>
         ) : null}
 
@@ -519,17 +652,28 @@ export function QuestionSetsScreen({
 
       <BottomNav activeTab={activeTab} onSelect={onSelectTab} />
 
-      <Modal visible={filterVisible} transparent animationType="none" onRequestClose={dismissFilterSheet}>
+      <Modal
+        visible={filterVisible}
+        transparent
+        animationType="none"
+        onRequestClose={dismissFilterSheet}
+      >
         <View style={styles.modalRoot}>
-          <Pressable style={styles.modalBackdrop} onPress={dismissFilterSheet} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={dismissFilterSheet}
+          />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 6 : 0}
             pointerEvents="box-none"
             style={styles.modalKeyboardAvoiding}
           >
             <Animated.View
-              style={[styles.filterSheet, { transform: [{ translateY: sheetTranslateY }] }]}
+              style={[
+                styles.filterSheet,
+                { transform: [{ translateY: sheetTranslateY }] },
+              ]}
               {...sheetPanResponder.panHandlers}
             >
               <View style={styles.sheetHandle} />
@@ -538,7 +682,10 @@ export function QuestionSetsScreen({
                   <Text style={styles.sheetTitle}>Filters</Text>
                   <Feather name="sliders" size={20} color={palette.primary} />
                 </View>
-                <Pressable style={styles.sheetCloseButton} onPress={dismissFilterSheet}>
+                <Pressable
+                  style={styles.sheetCloseButton}
+                  onPress={dismissFilterSheet}
+                >
                   <Feather name="x" size={18} color={palette.navy} />
                 </Pressable>
               </View>
@@ -549,151 +696,196 @@ export function QuestionSetsScreen({
                 showsVerticalScrollIndicator={false}
                 scrollEnabled
               >
-              <View style={styles.filterSection}>
-                <View style={styles.filterTitleRow}>
-                  <Text style={styles.filterSectionTitle}>Number of Questions</Text>
-                  <Pressable
-                    accessibilityLabel="About question counts"
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.filterHelpButton,
-                      questionCountHelpVisible && styles.filterHelpButtonActive,
-                      pressed && styles.pressed,
-                    ]}
-                    onPress={() => setQuestionCountHelpVisible((visible) => !visible)}
-                  >
-                    <Feather name="help-circle" size={17} color={palette.navy} />
-                  </Pressable>
-                </View>
-                {questionCountHelpVisible ? (
-                  <View style={styles.tooltipBubble}>
-                    <Text style={styles.tooltipText}>
-                      Question count is the total number of playable questions in a set. These ranges filter whole
-                      sets, not individual quiz attempts.
+                <View style={styles.filterSection}>
+                  <View style={styles.filterTitleRow}>
+                    <Text style={styles.filterSectionTitle}>
+                      Number of Questions
                     </Text>
+                    <Pressable
+                      accessibilityLabel="About question counts"
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.filterHelpButton,
+                        questionCountHelpVisible &&
+                          styles.filterHelpButtonActive,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() =>
+                        setQuestionCountHelpVisible((visible) => !visible)
+                      }
+                    >
+                      <Feather
+                        name="help-circle"
+                        size={17}
+                        color={palette.navy}
+                      />
+                    </Pressable>
                   </View>
-                ) : null}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                  {questionRanges.map((range) => (
-                    <ChoiceChip
-                      key={range.label}
-                      active={matchesQuestionRange(draftFilters, range)}
-                      label={range.label}
-                      onPress={() => toggleDraftQuestionRange(range)}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
+                  {questionCountHelpVisible ? (
+                    <View style={styles.tooltipBubble}>
+                      <Text style={styles.tooltipText}>
+                        Question count is the total number of playable questions
+                        in a set. These ranges filter whole sets, not individual
+                        quiz attempts.
+                      </Text>
+                    </View>
+                  ) : null}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.choiceRow}
+                  >
+                    {questionRanges.map((range) => (
+                      <ChoiceChip
+                        key={range.label}
+                        active={matchesQuestionRange(draftFilters, range)}
+                        label={range.label}
+                        onPress={() => toggleDraftQuestionRange(range)}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
 
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Tags</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.tagGridScroller}
-                >
-                  <View style={styles.tagRows}>
-                    {tagRows.map((row, rowIndex) => (
-                      <View key={`tag-row-${rowIndex}`} style={styles.tagFilterRow}>
-                        {row.map((tag) => (
-                          <ChoiceChip
-                            key={tag}
-                            active={(draftFilters.tags ?? []).includes(tag)}
-                            label={tag}
-                            onPress={() => toggleDraftTag(tag)}
-                          />
-                        ))}
-                      </View>
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Tags</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tagGridScroller}
+                  >
+                    <View style={styles.tagRows}>
+                      {tagRows.map((row, rowIndex) => (
+                        <View
+                          key={`tag-row-${rowIndex}`}
+                          style={styles.tagFilterRow}
+                        >
+                          {row.map((tag) => (
+                            <ChoiceChip
+                              key={tag}
+                              active={(draftFilters.tags ?? []).includes(tag)}
+                              label={tag}
+                              onPress={() => toggleDraftTag(tag)}
+                            />
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Ratings</Text>
+                  <View style={styles.ratingInputsRow}>
+                    <Text style={styles.ratingCopy}>Between</Text>
+                    <View style={styles.ratingInputGroup}>
+                      <Pressable
+                        accessibilityLabel="Decrease minimum rating"
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.ratingStepperButton,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() => stepDraftRating("minRating", -1)}
+                      >
+                        <Feather name="minus" size={14} color={palette.navy} />
+                      </Pressable>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        maxLength={3}
+                        placeholder="0.0"
+                        placeholderTextColor={palette.muted}
+                        style={styles.ratingInput}
+                        value={draftMinRatingText}
+                        onChangeText={(value) =>
+                          updateDraftRating("minRating", value)
+                        }
+                      />
+                      <Pressable
+                        accessibilityLabel="Increase minimum rating"
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.ratingStepperButton,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() => stepDraftRating("minRating", 1)}
+                      >
+                        <Feather name="plus" size={14} color={palette.navy} />
+                      </Pressable>
+                    </View>
+                    <Text style={styles.ratingCopy}>and</Text>
+                    <View style={styles.ratingInputGroup}>
+                      <Pressable
+                        accessibilityLabel="Decrease maximum rating"
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.ratingStepperButton,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() => stepDraftRating("maxRating", -1)}
+                      >
+                        <Feather name="minus" size={14} color={palette.navy} />
+                      </Pressable>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        maxLength={3}
+                        placeholder="5.0"
+                        placeholderTextColor={palette.muted}
+                        style={styles.ratingInput}
+                        value={draftMaxRatingText}
+                        onChangeText={(value) =>
+                          updateDraftRating("maxRating", value)
+                        }
+                      />
+                      <Pressable
+                        accessibilityLabel="Increase maximum rating"
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.ratingStepperButton,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() => stepDraftRating("maxRating", 1)}
+                      >
+                        <Feather name="plus" size={14} color={palette.navy} />
+                      </Pressable>
+                    </View>
+                    <Text style={styles.ratingCopy}>stars</Text>
+                  </View>
+                </View>
+
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionTitle}>Sort</Text>
+                  <View style={styles.wrapRow}>
+                    {sortOptions.map((option) => (
+                      <ChoiceChip
+                        key={option.value}
+                        active={draftFilters.sort === option.value}
+                        label={option.label}
+                        onPress={() => toggleDraftSort(option.value)}
+                      />
                     ))}
                   </View>
-                </ScrollView>
-              </View>
-
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Ratings</Text>
-                <View style={styles.ratingInputsRow}>
-                  <Text style={styles.ratingCopy}>Between</Text>
-                  <View style={styles.ratingInputGroup}>
-                    <Pressable
-                      accessibilityLabel="Decrease minimum rating"
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.ratingStepperButton, pressed && styles.pressed]}
-                      onPress={() => stepDraftRating('minRating', -1)}
-                    >
-                      <Feather name="minus" size={14} color={palette.navy} />
-                    </Pressable>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      maxLength={3}
-                      placeholder="0.0"
-                      placeholderTextColor={palette.muted}
-                      style={styles.ratingInput}
-                      value={draftMinRatingText}
-                      onChangeText={(value) => updateDraftRating('minRating', value)}
-                    />
-                    <Pressable
-                      accessibilityLabel="Increase minimum rating"
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.ratingStepperButton, pressed && styles.pressed]}
-                      onPress={() => stepDraftRating('minRating', 1)}
-                    >
-                      <Feather name="plus" size={14} color={palette.navy} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.ratingCopy}>and</Text>
-                  <View style={styles.ratingInputGroup}>
-                    <Pressable
-                      accessibilityLabel="Decrease maximum rating"
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.ratingStepperButton, pressed && styles.pressed]}
-                      onPress={() => stepDraftRating('maxRating', -1)}
-                    >
-                      <Feather name="minus" size={14} color={palette.navy} />
-                    </Pressable>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      maxLength={3}
-                      placeholder="5.0"
-                      placeholderTextColor={palette.muted}
-                      style={styles.ratingInput}
-                      value={draftMaxRatingText}
-                      onChangeText={(value) => updateDraftRating('maxRating', value)}
-                    />
-                    <Pressable
-                      accessibilityLabel="Increase maximum rating"
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.ratingStepperButton, pressed && styles.pressed]}
-                      onPress={() => stepDraftRating('maxRating', 1)}
-                    >
-                      <Feather name="plus" size={14} color={palette.navy} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.ratingCopy}>stars</Text>
                 </View>
-              </View>
 
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Sort</Text>
-                <View style={styles.wrapRow}>
-                  {sortOptions.map((option) => (
-                    <ChoiceChip
-                      key={option.value}
-                      active={draftFilters.sort === option.value}
-                      label={option.label}
-                      onPress={() => toggleDraftSort(option.value)}
-                    />
-                  ))}
+                <View style={styles.sheetActions}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.resetButton,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={resetDraftFilters}
+                  >
+                    <Text style={styles.resetButtonText}>Reset</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.confirmButton,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={applyDraftFilters}
+                  >
+                    <Text style={styles.confirmButtonText}>Confirm</Text>
+                  </Pressable>
                 </View>
-              </View>
-
-              <View style={styles.sheetActions}>
-                <Pressable style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]} onPress={resetDraftFilters}>
-                  <Text style={styles.resetButtonText}>Reset</Text>
-                </Pressable>
-                <Pressable style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]} onPress={applyDraftFilters}>
-                  <Text style={styles.confirmButtonText}>Confirm</Text>
-                </Pressable>
-              </View>
               </ScrollView>
             </Animated.View>
           </KeyboardAvoidingView>
@@ -713,24 +905,24 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   headerSafeArea: {
     minHeight: 118,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: Platform.OS === 'android' ? 24 : 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: Platform.OS === "android" ? 24 : 0,
     paddingBottom: 20,
   },
   headerTitle: {
     color: palette.white,
     fontSize: 24,
     lineHeight: 36,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 13,
     paddingHorizontal: 13,
     marginTop: 14,
@@ -745,8 +937,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.offWhite,
     paddingLeft: 20,
     paddingRight: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   searchInput: {
@@ -754,7 +946,7 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '400',
+    fontWeight: "400",
     paddingVertical: 0,
   },
   filterButton: {
@@ -762,25 +954,25 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: palette.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   filterBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -2,
     right: -2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     backgroundColor: palette.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 5,
   },
   filterBadgeText: {
     color: palette.white,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   content: {
     paddingHorizontal: 23,
@@ -790,7 +982,7 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: 36,
     lineHeight: 48,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
   },
   resultsTitleSearch: {
@@ -803,11 +995,11 @@ const styles = StyleSheet.create({
     color: palette.primary,
   },
   errorText: {
-    color: '#B42318',
+    color: "#B42318",
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 10,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingText: {
     color: palette.muted,
@@ -820,37 +1012,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.navy,
     borderRadius: 22,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 22,
   },
   questionCardImage: {
     height: 187,
-    width: '100%',
-    overflow: 'hidden',
-    justifyContent: 'flex-start',
+    width: "100%",
+    overflow: "hidden",
+    justifyContent: "flex-start",
   },
   questionCardImageAsset: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   imageOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: "rgba(0,0,0,0.18)",
   },
   questionCardTitle: {
     color: palette.white,
     fontSize: 22,
     lineHeight: 33,
-    fontWeight: '700',
+    fontWeight: "700",
     paddingHorizontal: 21,
     paddingTop: 17,
   },
@@ -860,34 +1052,34 @@ const styles = StyleSheet.create({
     paddingBottom: 17,
   },
   tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: 5,
   },
   tagsLabel: {
-    color: '#020202',
+    color: "#020202",
     fontSize: 11,
     lineHeight: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cardTag: {
     minHeight: 16,
     borderRadius: 327,
     backgroundColor: palette.navy,
     paddingHorizontal: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardTagText: {
     color: palette.white,
     fontSize: 11,
     lineHeight: 16,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   cardMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 7,
     marginTop: 4,
   },
@@ -895,49 +1087,49 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   helpCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   helpCircleActive: {
-    backgroundColor: 'rgba(56,222,144,0.22)',
+    backgroundColor: "rgba(56,222,144,0.22)",
   },
   ratingPill: {
-    marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginLeft: "auto",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
     borderRadius: 360,
     borderWidth: 1,
     borderColor: palette.primary,
     paddingHorizontal: 8,
     minHeight: 22,
-    backgroundColor: 'rgba(56,222,144,0.18)',
+    backgroundColor: "rgba(56,222,144,0.18)",
   },
   ratingText: {
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cardInfoPanel: {
     marginTop: 7,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 5,
   },
   cardInfoText: {
-    color: '#020202',
+    color: "#020202",
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 16,
     marginTop: 10,
   },
@@ -946,14 +1138,14 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 28,
     backgroundColor: palette.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   playButtonText: {
     color: palette.offWhite,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   saveButton: {
     flex: 1,
@@ -961,9 +1153,9 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 1,
     borderColor: palette.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: 7,
   },
   saveButtonActive: {
@@ -974,7 +1166,7 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   saveButtonTextActive: {
     color: palette.white,
@@ -986,10 +1178,10 @@ const styles = StyleSheet.create({
     minHeight: 220,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(8,18,69,0.14)',
+    borderColor: "rgba(8,18,69,0.14)",
     backgroundColor: palette.sheet,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
     marginTop: 12,
   },
@@ -997,41 +1189,41 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 18,
     lineHeight: 27,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 10,
   },
   emptyText: {
     color: palette.muted,
     fontSize: 14,
     lineHeight: 21,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 6,
   },
   modalRoot: {
-    position: Platform.OS === 'web' ? ('fixed' as 'absolute') : 'absolute',
+    position: Platform.OS === "web" ? ("fixed" as "absolute") : "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
-    justifyContent: 'flex-end',
+    width: "100%",
+    height: "100%",
+    justifyContent: "flex-end",
     zIndex: 1000,
   },
   modalKeyboardAvoiding: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   modalBackdrop: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(8,18,69,0.28)',
+    backgroundColor: "rgba(8,18,69,0.28)",
   },
   filterSheet: {
-    maxHeight: '84%',
+    maxHeight: "84%",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     backgroundColor: palette.sheet,
@@ -1040,36 +1232,36 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   sheetHandle: {
-    alignSelf: 'center',
+    alignSelf: "center",
     width: 42,
     height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(8,18,69,0.2)',
+    backgroundColor: "rgba(8,18,69,0.2)",
     marginBottom: 12,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   sheetTitle: {
     color: palette.primary,
     fontSize: 22,
     lineHeight: 30,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   sheetCloseButton: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.white,
   },
   sheetContent: {
@@ -1080,34 +1272,34 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   filterTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 7,
   },
   filterSectionTitle: {
     color: palette.navy,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   filterHelpButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: 'rgba(8,18,69,0.16)',
+    borderColor: "rgba(8,18,69,0.16)",
   },
   filterHelpButtonActive: {
     borderColor: palette.primary,
-    backgroundColor: 'rgba(56,222,144,0.18)',
+    backgroundColor: "rgba(56,222,144,0.18)",
   },
   tooltipBubble: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(8,18,69,0.12)',
+    borderColor: "rgba(8,18,69,0.12)",
     backgroundColor: palette.white,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1116,15 +1308,15 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   choiceRow: {
     gap: 10,
     paddingRight: 20,
   },
   wrapRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   tagGridScroller: {
@@ -1134,7 +1326,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tagFilterRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     minHeight: 29,
   },
@@ -1144,11 +1336,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.primary,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   choiceChipActive: {
     backgroundColor: palette.primaryLight,
@@ -1157,15 +1349,15 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   choiceChipTextActive: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   ratingInputsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
   },
   ratingInputGroup: {
@@ -1174,16 +1366,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.primary,
     backgroundColor: palette.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
   },
   ratingStepperButton: {
     width: 34,
     height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(56,222,144,0.14)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(56,222,144,0.14)",
   },
   ratingInput: {
     width: 46,
@@ -1191,8 +1383,8 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     paddingHorizontal: 4,
     paddingVertical: 0,
   },
@@ -1200,10 +1392,10 @@ const styles = StyleSheet.create({
     color: palette.navy,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   sheetActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 6,
   },
@@ -1213,29 +1405,29 @@ const styles = StyleSheet.create({
     borderRadius: 360,
     borderWidth: 1,
     borderColor: palette.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.white,
   },
   resetButtonText: {
     color: palette.navy,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
     height: 48,
     borderRadius: 360,
     backgroundColor: palette.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   confirmButtonText: {
     color: palette.offWhite,
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   pressed: {
     opacity: 0.72,

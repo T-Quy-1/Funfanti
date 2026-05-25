@@ -1,8 +1,9 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import { funfantiApi } from './funfantiApi';
-import { QuizQuestion } from '../data/funfantiContent';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
+import { funfantiApi } from "./funfantiApi";
+import { QuizQuestion } from "../data/funfantiContent";
+import { analyticsEvents, logEvent } from "./analytics";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,23 +33,24 @@ export function markQuestionAsCorrect(questionId: string): void {
 
 export const notificationService = {
   async requestPermissionsAsync() {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: "#FF231F7C",
       });
     }
 
     if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
+      if (existingStatus !== "granted") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-      return finalStatus === 'granted';
+      return finalStatus === "granted";
     }
     return false;
   },
@@ -98,7 +100,8 @@ export const notificationService = {
     let currentTriggerTime = now.getTime();
     const intervalMs = 5 * 60 * 1000; // 30 minutes
 
-    for (let i = 0; i < Math.min(10, allQuestions.length); i++) {
+    const scheduledCount = Math.min(10, allQuestions.length);
+    for (let i = 0; i < scheduledCount; i++) {
       currentTriggerTime += intervalMs;
       let triggerDate = new Date(currentTriggerTime);
 
@@ -126,6 +129,14 @@ export const notificationService = {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: triggerDate,
         },
+      });
+    }
+
+    if (scheduledCount > 0) {
+      void logEvent(analyticsEvents.lockscreen_notification_scheduled, {
+        scheduled_count: scheduledCount,
+        question_pool_count: allQuestions.length,
+        bookmark_set_count: bookmarks.length,
       });
     }
   },
