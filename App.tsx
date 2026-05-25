@@ -30,7 +30,15 @@ import {
   logEvent,
   logScreenView,
 } from "./src/services/analytics";
+import {
+  clearPersistedAuthSession,
+  markOnboardingCompleted,
+  persistAuthSession,
+  readHasCompletedOnboarding,
+  readPersistedAuthSession,
+} from "./src/services/appStorage";
 import type { LockScreenTimingPreference } from "./src/utils/notificationPreferences";
+import { resolveStartupScreen } from "./src/utils/sessionPersistence";
 import type { AppTab } from "./src/screens/screenTypes";
 import {
   applyQuizReturnTarget,
@@ -213,6 +221,7 @@ export default function App() {
       setActivity(nextActivity);
       setSchedules(nextSchedules);
       syncPreferenceState(nextProfile);
+      void persistAuthSession(token, nextProfile);
       void notificationService.replenishQuestionQueue(
         token,
         nextProfile.preference?.lockScreenTiming,
@@ -230,11 +239,87 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setScreen("onboarding-1");
-    }, 900);
+    let cancelled = false;
 
-    return () => clearTimeout(timer);
+    const hydrateApp = async () => {
+      const hasCompletedOnboarding = await readHasCompletedOnboarding();
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!hasCompletedOnboarding) {
+        setScreen(
+          resolveStartupScreen({
+            hasCompletedOnboarding,
+            hasValidSession: false,
+          }),
+        );
+        return;
+      }
+
+      const session = await readPersistedAuthSession();
+
+      if (!session) {
+        setScreen(
+          resolveStartupScreen({
+            hasCompletedOnboarding,
+            hasValidSession: false,
+          }),
+        );
+        return;
+      }
+
+      if (session.user) {
+        const cachedProfile = emptyProfileFromAuth(session.user);
+        setProfile(cachedProfile);
+        setRegisterName(cachedProfile.displayName ?? "");
+        setRegisterEmail(cachedProfile.email);
+        setLoginEmail(cachedProfile.email);
+      }
+
+      try {
+        const nextProfile = await funfantiApi.getProfile(session.accessToken);
+
+        if (cancelled) {
+          return;
+        }
+
+        setProfile(nextProfile);
+        setRegisterName(nextProfile.displayName ?? "");
+        setRegisterEmail(nextProfile.email);
+        setLoginEmail(nextProfile.email);
+        syncPreferenceState(nextProfile);
+        setAuthToken(session.accessToken);
+        void persistAuthSession(session.accessToken, nextProfile);
+        resetMainTabs();
+      } catch {
+        await clearPersistedAuthSession();
+
+        if (cancelled) {
+          return;
+        }
+
+        setAuthToken(null);
+        setProfile(null);
+        setBookmarks([]);
+        setActivity([]);
+        setSchedules([]);
+        setLoginEmail(session.user?.email ?? "");
+        setScreen(
+          resolveStartupScreen({
+            hasCompletedOnboarding,
+            hasValidSession: false,
+          }),
+        );
+      }
+    };
+
+    void hydrateApp();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -312,9 +397,15 @@ export default function App() {
     void notificationService.clearAllScheduledNotifications();
   }, [authToken, refreshUserSpace]);
 
-  const goToAuthEntry = () => {
+  const completeOnboarding = async () => {
+    await markOnboardingCompleted().catch(() => undefined);
     setAuthError(null);
     setScreen("auth-select");
+  };
+
+  const persistLoggedInSession = async (accessToken: string, user: AuthUser) => {
+    await markOnboardingCompleted().catch(() => undefined);
+    await persistAuthSession(accessToken, user).catch(() => undefined);
   };
 
   const selectMainTab = (tab: AppTab) => {
@@ -375,6 +466,30 @@ export default function App() {
     setQuizReturnTarget(null);
   };
 
+  const clearInMemorySession = () => {
+    setAuthToken(null);
+    setAuthError(null);
+    setProfile(null);
+    setBookmarks([]);
+    setActivity([]);
+    setSchedules([]);
+    setUserSpaceError(null);
+    setProfileError(null);
+    setLoginPassword("");
+    setRegisterPassword("");
+    setRegisterConfirmPassword("");
+    setTabStacks(createInitialTabStacks());
+    setActiveTab("home");
+    clearActiveQuizSession();
+  };
+
+  const handleLogout = async () => {
+    await clearPersistedAuthSession().catch(() => undefined);
+    clearInMemorySession();
+    void notificationService.clearAllScheduledNotifications();
+    setScreen("auth-select");
+  };
+
   const finishQuizFlow = () => {
     const target =
       quizReturnTarget ?? createQuizReturnTarget(tabStacks, activeTab);
@@ -421,7 +536,7 @@ export default function App() {
     }
 
     if (next >= onboardingSlides.length) {
-      setScreen("auth-select");
+      void completeOnboarding();
       return;
     }
 
@@ -470,6 +585,7 @@ export default function App() {
         password: registerPassword,
         displayName: registerName.trim() || fallbackName,
       });
+      await persistLoggedInSession(payload.accessToken, payload.user);
       setProfile(emptyProfileFromAuth(payload.user));
       setAuthToken(payload.accessToken);
       void logEvent(analyticsEvents.auth_success, { method: "register" });
@@ -507,6 +623,7 @@ export default function App() {
 
     try {
       const payload = await funfantiApi.login(email, loginPassword);
+      await persistLoggedInSession(payload.accessToken, payload.user);
       setProfile(emptyProfileFromAuth(payload.user));
       setAuthToken(payload.accessToken);
       void logEvent(analyticsEvents.auth_success, { method: "login" });
@@ -865,6 +982,7 @@ export default function App() {
       setRegisterName(nextProfile.displayName ?? "");
       setRegisterEmail(nextProfile.email);
       syncPreferenceState(nextProfile);
+      void persistAuthSession(authToken, nextProfile);
     } catch (error) {
       setProfileError(
         error instanceof Error
@@ -908,6 +1026,7 @@ export default function App() {
       );
       setProfile(nextProfile);
       syncPreferenceState(nextProfile);
+      void persistAuthSession(authToken, nextProfile);
       await notificationService.replenishQuestionQueue(
         authToken,
         nextProfile.preference?.lockScreenTiming,
@@ -1029,6 +1148,7 @@ export default function App() {
           source: "retry",
         })
       }
+      onLogout={handleLogout}
       onUpdateProfile={updateProfile}
       onRefreshUserSpace={() => {
         if (authToken) {
@@ -1078,7 +1198,7 @@ export default function App() {
                   slide_index: slideIndex,
                 });
               }
-              goToAuthEntry();
+              void completeOnboarding();
             }}
             onAdvanceOnboarding={() => {
               if (screen === "onboarding-3") {
@@ -1086,7 +1206,7 @@ export default function App() {
                   slide_index: 3,
                   total_slides: onboardingSlides.length,
                 });
-                setScreen("auth-select");
+                void completeOnboarding();
                 return;
               }
               moveOnboarding(1);

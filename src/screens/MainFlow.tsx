@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
   Platform,
@@ -88,6 +89,7 @@ type MainFlowProps = {
   onStartQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
+  onLogout: () => void;
   onUpdateProfile: (payload: { displayName?: string; avatarUrl?: string }) => void;
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
@@ -228,6 +230,7 @@ export function MainFlow(props: MainFlowProps) {
     onStartQuestionSet,
     onToggleQuestionSetBookmark,
     onRetryQuiz,
+    onLogout,
     onUpdateProfile,
     onRefreshUserSpace,
     onUpdateNotificationOverlay,
@@ -448,6 +451,17 @@ export function MainFlow(props: MainFlowProps) {
 
   const closeActivityHistory = () => {
     setActivityModalVisible(false);
+  };
+
+  const confirmLogout = () => {
+    Alert.alert(
+      'Log out?',
+      'You will need to log in again to sync your question sets and activity.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log out', style: 'destructive', onPress: onLogout },
+      ],
+    );
   };
 
   const maybeLoadMoreActivity = ({
@@ -857,6 +871,19 @@ export function MainFlow(props: MainFlowProps) {
         </View>
 
         <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Session</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+            onPress={confirmLogout}
+          >
+            <Feather name="log-out" size={17} color={palette.danger} />
+            <Text style={styles.logoutButtonText}>Log out</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.panel}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open full activity history"
@@ -1235,6 +1262,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     fontWeight: '600',
+  },
+  logoutButton: {
+    minHeight: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: palette.danger,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  logoutButtonText: {
+    color: palette.danger,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '700',
   },
   textAction: {
     minHeight: 32,
