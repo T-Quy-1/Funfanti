@@ -546,6 +546,7 @@ export default function App() {
     themeEnabled: boolean;
     hapticsEnabled: boolean;
     notificationOverlay: boolean;
+    lockScreenTiming?: Record<string, string | undefined>;
   }) => {
     if (!authToken) {
       setAuthError('Please log in before changing settings.');
@@ -565,6 +566,7 @@ export default function App() {
           theme: nextState.themeEnabled ? 'system' : 'light',
           hapticsEnabled: nextState.hapticsEnabled,
           notificationOverlay: nextState.notificationOverlay,
+          ...(nextState.lockScreenTiming ? { lockScreenTiming: nextState.lockScreenTiming } : {}),
         },
         authToken,
       );
@@ -699,6 +701,14 @@ export default function App() {
           themeEnabled,
           hapticsEnabled,
           notificationOverlay: value,
+        });
+      }}
+      onUpdateLockScreenTiming={(value) => {
+        void updatePreference({
+          themeEnabled,
+          hapticsEnabled,
+          notificationOverlay,
+          lockScreenTiming: value,
         });
       }}
     />

@@ -83,6 +83,11 @@ type MainFlowProps = {
   onUpdateProfile: (payload: { displayName?: string; avatarUrl?: string }) => void;
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
+  onUpdateLockScreenTiming: (payload: {
+    morning?: string;
+    noon?: string;
+    evening?: string;
+  }) => void;
 };
 
 const palette = {
@@ -196,6 +201,7 @@ export function MainFlow(props: MainFlowProps) {
     onUpdateProfile,
     onRefreshUserSpace,
     onUpdateNotificationOverlay,
+    onUpdateLockScreenTiming,
   } = props;
 
   const displayName = profile?.displayName?.trim() || 'Funfanti Learner';
@@ -209,6 +215,9 @@ export function MainFlow(props: MainFlowProps) {
 
   const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
   const [avatarUrlDraft, setAvatarUrlDraft] = useState(profile?.avatarUrl ?? '');
+  const [lockScreenMorningDraft, setLockScreenMorningDraft] = useState('');
+  const [lockScreenNoonDraft, setLockScreenNoonDraft] = useState('');
+  const [lockScreenEveningDraft, setLockScreenEveningDraft] = useState('');
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [visibleActivityCount, setVisibleActivityCount] = useState(10);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
@@ -218,6 +227,21 @@ export function MainFlow(props: MainFlowProps) {
     setDisplayNameDraft(displayName);
     setAvatarUrlDraft(profile?.avatarUrl ?? '');
   }, [displayName, profile?.avatarUrl]);
+
+  useEffect(() => {
+    const timing = profile?.preference?.lockScreenTiming;
+
+    if (!timing) {
+      setLockScreenMorningDraft('');
+      setLockScreenNoonDraft('');
+      setLockScreenEveningDraft('');
+      return;
+    }
+
+    setLockScreenMorningDraft(timing.morning ?? '');
+    setLockScreenNoonDraft(timing.noon ?? '');
+    setLockScreenEveningDraft(timing.evening ?? '');
+  }, [profile?.preference?.lockScreenTiming]);
 
   useEffect(() => {
     if (!notificationOverlay) {
@@ -276,6 +300,18 @@ export function MainFlow(props: MainFlowProps) {
   const profileChanged =
     displayNameDraft.trim() !== (profile?.displayName ?? '').trim() ||
     avatarUrlDraft.trim() !== (profile?.avatarUrl ?? '').trim();
+
+  const currentLockScreenTiming = profile?.preference?.lockScreenTiming;
+  const lockScreenTimingChanged =
+    lockScreenMorningDraft.trim() !== (currentLockScreenTiming?.morning ?? '').trim() ||
+    lockScreenNoonDraft.trim() !== (currentLockScreenTiming?.noon ?? '').trim() ||
+    lockScreenEveningDraft.trim() !== (currentLockScreenTiming?.evening ?? '').trim();
+
+  const lockScreenTimingSummary = [
+    lockScreenMorningDraft.trim() || 'Morning unset',
+    lockScreenNoonDraft.trim() || 'Noon unset',
+    lockScreenEveningDraft.trim() || 'Evening unset',
+  ].join(' · ');
 
   const renderBottomNav = () => <BottomNav activeTab={activeTab} onSelect={onSelectTab} />;
 
@@ -655,6 +691,78 @@ export function MainFlow(props: MainFlowProps) {
               trackColor={{ false: '#D8DEE5', true: '#97D8AF' }}
               thumbColor={notificationOverlay ? palette.primary : palette.white}
             />
+          </View>
+          <View style={styles.timingSection}>
+            <View style={styles.timingHeader}>
+              <Text style={styles.timingHeaderTitle}>Lock-screen pop-ups</Text>
+              <Text style={styles.timingHeaderText}>
+                Set the times when quiz prompts can appear on the lock screen.
+              </Text>
+            </View>
+            <View style={styles.timingPreviewRow}>
+              <View style={styles.timingPreviewPill}>
+                <Text style={styles.timingPreviewText}>Morning: {lockScreenMorningDraft.trim() || 'unset'}</Text>
+              </View>
+              <View style={styles.timingPreviewPill}>
+                <Text style={styles.timingPreviewText}>Noon: {lockScreenNoonDraft.trim() || 'unset'}</Text>
+              </View>
+              <View style={styles.timingPreviewPill}>
+                <Text style={styles.timingPreviewText}>Evening: {lockScreenEveningDraft.trim() || 'unset'}</Text>
+              </View>
+            </View>
+            <View style={styles.timingGrid}>
+              <View style={styles.timingField}>
+                <Text style={styles.inputLabel}>Morning</Text>
+                <TextInput
+                  style={styles.timingInput}
+                  value={lockScreenMorningDraft}
+                  onChangeText={setLockScreenMorningDraft}
+                  placeholder="08:00"
+                  placeholderTextColor={palette.muted}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+              <View style={styles.timingField}>
+                <Text style={styles.inputLabel}>Noon</Text>
+                <TextInput
+                  style={styles.timingInput}
+                  value={lockScreenNoonDraft}
+                  onChangeText={setLockScreenNoonDraft}
+                  placeholder="12:00"
+                  placeholderTextColor={palette.muted}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+              <View style={styles.timingField}>
+                <Text style={styles.inputLabel}>Evening</Text>
+                <TextInput
+                  style={styles.timingInput}
+                  value={lockScreenEveningDraft}
+                  onChangeText={setLockScreenEveningDraft}
+                  placeholder="18:00"
+                  placeholderTextColor={palette.muted}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+            </View>
+            <Text style={styles.mutedText}>Current: {lockScreenTimingSummary}</Text>
+            <Pressable
+              disabled={!lockScreenTimingChanged}
+              style={({ pressed }) => [
+                styles.secondaryAction,
+                !lockScreenTimingChanged && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+              onPress={() =>
+                onUpdateLockScreenTiming({
+                  morning: lockScreenMorningDraft.trim() || undefined,
+                  noon: lockScreenNoonDraft.trim() || undefined,
+                  evening: lockScreenEveningDraft.trim() || undefined,
+                })
+              }
+            >
+              <Text style={styles.secondaryActionText}>Save lock-screen times</Text>
+            </Pressable>
           </View>
           {notificationOverlay ? (
             <Animated.View
@@ -1102,6 +1210,69 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 0,
+  },
+  timingSection: {
+    marginTop: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DCE7DA',
+    backgroundColor: '#F8FAF8',
+    padding: 14,
+  },
+  timingHeader: {
+    gap: 4,
+    marginBottom: 12,
+  },
+  timingHeaderTitle: {
+    color: palette.navy,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  timingHeaderText: {
+    color: palette.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  timingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  timingField: {
+    flexGrow: 1,
+    flexBasis: 122,
+  },
+  timingInput: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: palette.navy,
+    borderRadius: 23,
+    paddingHorizontal: 14,
+    color: palette.navy,
+    backgroundColor: '#FAFBFC',
+  },
+  timingPreviewRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  timingPreviewPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: palette.white,
+    borderWidth: 1,
+    borderColor: '#D9E5DA',
+  },
+  timingPreviewText: {
+    color: palette.navy,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   scheduleReveal: {
     marginTop: 12,
