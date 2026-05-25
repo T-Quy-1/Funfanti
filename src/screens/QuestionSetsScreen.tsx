@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -64,7 +64,6 @@ type QuestionSetsScreenProps = {
   onSelectTab: (tab: AppTab) => void;
   onPlayQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleBookmark: (questionSet: QuestionSetCard) => void;
-  onFiltersChange?: (filters: QuestionSetFilters) => void;
 };
 
 const matchesQuestionRange = (filters: QuestionSetFilters, range: (typeof questionRanges)[number]) =>
@@ -288,7 +287,6 @@ export function QuestionSetsScreen({
   onSelectTab,
   onPlayQuestionSet,
   onToggleBookmark,
-  onFiltersChange,
 }: QuestionSetsScreenProps) {
   const [filterVisible, setFilterVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -300,26 +298,22 @@ export function QuestionSetsScreen({
   const [questionCountHelpVisible, setQuestionCountHelpVisible] = useState(false);
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (onFiltersChange) {
-      const searchActive = submittedSearchQuery.trim().length > 0;
-      const hasActiveFilters = hasActiveQuestionSetFilters(filters);
-
-      if (!searchActive && !hasActiveFilters) {
-        onFiltersChange({ isFeatured: true });
-      } else {
-        onFiltersChange({
-          ...filters,
-          ...(searchActive ? { search: submittedSearchQuery } : {}),
-        });
-      }
-    }
-  }, [filters, submittedSearchQuery, onFiltersChange]);
-
   const searchActive = submittedSearchQuery.trim().length > 0;
   const hasActiveFilters = hasActiveQuestionSetFilters(filters);
   const showFeatured = !searchActive && !hasActiveFilters;
-  const visibleQuestionSets = questionSets;
+  const visibleQuestionSets = useMemo(
+    () =>
+      filterQuestionSets(
+        questionSets,
+        showFeatured
+          ? { isFeatured: true }
+          : {
+              ...filters,
+              search: submittedSearchQuery,
+            },
+      ),
+    [filters, questionSets, showFeatured, submittedSearchQuery],
+  );
 
   const availableTags = useMemo(
     () => Array.from(new Set(questionSetTags.map((tag) => tag.trim()).filter(Boolean))),
@@ -488,6 +482,9 @@ export function QuestionSetsScreen({
 
   const updateSearchQuery = (value: string) => {
     setSearchQuery(value);
+    if (!value.trim()) {
+      setSubmittedSearchQuery('');
+    }
   };
 
   const submitSearch = () => {

@@ -22,7 +22,7 @@ import {
   QuestionSetQuizScreen,
   QuestionSetSummaryScreen,
 } from './QuestionSetPlayFlow';
-import type { QuestionSetCard, QuizQuestion, QuestionSetFilters } from '../data/funfantiContent';
+import type { QuestionSetCard, QuizQuestion } from '../data/funfantiContent';
 import type {
   NotificationSchedule,
   QuizSessionResult,
@@ -64,6 +64,7 @@ type MainFlowProps = {
   questionSetTags: string[];
   questionSetsLoading: boolean;
   questionSetsError: string | null;
+  onExitQuizSummary: () => void;
   bookmarkedQuestionSetIds: string[];
   bookmarkActionLoadingId: string | null;
   questionSetActionLoadingId: string | null;
@@ -87,12 +88,10 @@ type MainFlowProps = {
   onStartQuestionSet: (questionSet: QuestionSetCard) => void;
   onToggleQuestionSetBookmark: (questionSet: QuestionSetCard) => void;
   onRetryQuiz: () => void;
-  onContinueHome: () => void;
   onUpdateProfile: (payload: { displayName?: string; avatarUrl?: string }) => void;
   onRefreshUserSpace: () => void;
   onUpdateNotificationOverlay: (value: boolean) => void;
   onUpdateLockScreenTiming: (payload: LockScreenTimingPreference) => void;
-  onUpdateDiscoverFilters: (filters: QuestionSetFilters) => void;
 };
 
 const palette = {
@@ -205,6 +204,7 @@ export function MainFlow(props: MainFlowProps) {
     questionSetTags,
     questionSetsLoading,
     questionSetsError,
+    onExitQuizSummary,
     bookmarkedQuestionSetIds,
     bookmarkActionLoadingId,
     questionSetActionLoadingId,
@@ -228,12 +228,10 @@ export function MainFlow(props: MainFlowProps) {
     onStartQuestionSet,
     onToggleQuestionSetBookmark,
     onRetryQuiz,
-    onContinueHome,
     onUpdateProfile,
     onRefreshUserSpace,
     onUpdateNotificationOverlay,
     onUpdateLockScreenTiming,
-    onUpdateDiscoverFilters,
   } = props;
 
   const displayName = profile?.displayName?.trim() || 'Funfanti Learner';
@@ -603,7 +601,6 @@ export function MainFlow(props: MainFlowProps) {
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}
-      onFiltersChange={onUpdateDiscoverFilters}
       onSelectTab={onSelectTab}
       onPlayQuestionSet={onStartQuestionSet}
       onToggleBookmark={onToggleQuestionSetBookmark}
@@ -674,8 +671,8 @@ export function MainFlow(props: MainFlowProps) {
       quizSessionResult={quizSessionResult}
       scoreSummary={scoreSummary}
       totalTimeMs={quizTotalTimeMs}
-      onBack={onBack}
-      onContinue={onContinueHome}
+      onBack={onExitQuizSummary}
+      onContinue={onExitQuizSummary}
       onRetry={onRetryQuiz}
     />
   );

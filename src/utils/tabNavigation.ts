@@ -8,6 +8,11 @@ export type MainScreenKey = Extract<
 
 export type MainTabStacks = Record<AppTab, MainScreenKey[]>;
 
+export type QuizReturnTarget = {
+  tab: AppTab;
+  stack: MainScreenKey[];
+};
+
 export const tabRootScreens: Record<AppTab, MainScreenKey> = {
   home: 'home',
   discover: 'discover',
@@ -85,6 +90,48 @@ export const popTabStack = (stacks: MainTabStacks, tab: AppTab) => {
     stacks: {
       ...stacks,
       [tab]: nextStack,
+    },
+    screen: nextScreen,
+  };
+};
+
+const stripCompletedQuizScreens = (stack: MainScreenKey[]) => {
+  const cleanedStack = stack.filter((screen) => screen !== 'quiz' && screen !== 'result');
+  return cleanedStack.length > 0 ? cleanedStack : undefined;
+};
+
+export const createQuizReturnTarget = (
+  stacks: MainTabStacks,
+  tab: AppTab,
+): QuizReturnTarget => {
+  const currentStack = stacks[tab] ?? [tabRootScreens[tab]];
+  const cleanedStack = stripCompletedQuizScreens(currentStack);
+
+  if (tab === 'home' || tab === 'quiz') {
+    return {
+      tab,
+      stack: [tabRootScreens[tab]],
+    };
+  }
+
+  return {
+    tab,
+    stack: cleanedStack ?? [tabRootScreens[tab]],
+  };
+};
+
+export const applyQuizReturnTarget = (
+  stacks: MainTabStacks,
+  target: QuizReturnTarget,
+) => {
+  const nextStack = target.stack.length > 0 ? target.stack : [tabRootScreens[target.tab]];
+  const nextScreen = nextStack[nextStack.length - 1] ?? tabRootScreens[target.tab];
+
+  return {
+    tab: target.tab,
+    stacks: {
+      ...stacks,
+      [target.tab]: nextStack,
     },
     screen: nextScreen,
   };

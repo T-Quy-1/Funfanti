@@ -9,7 +9,6 @@ import {
   type QuestionSetCard,
   type QuizQuestion,
   type ScreenKey,
-  type QuestionSetFilters,
 } from './src/data/funfantiContent';
 import * as Notifications from 'expo-notifications';
 import { notificationService, markQuestionAsCorrect } from './src/services/notificationService';
@@ -26,7 +25,9 @@ import {
 import type { LockScreenTimingPreference } from './src/utils/notificationPreferences';
 import type { AppTab } from './src/screens/screenTypes';
 import {
+  applyQuizReturnTarget,
   createInitialTabStacks,
+  createQuizReturnTarget,
   getTabStackTop,
   isMainScreenKey,
   popTabStack,
@@ -34,6 +35,7 @@ import {
   replaceTabStackTop,
   type MainScreenKey,
   type MainTabStacks,
+  type QuizReturnTarget,
 } from './src/utils/tabNavigation';
 
 const emptyProfileFromAuth = (user: AuthUser): UserProfile => ({
@@ -70,7 +72,6 @@ export default function App() {
   const [schedules, setSchedules] = useState<NotificationSchedule[]>([]);
 
   const [questionSets, setQuestionSets] = useState<QuestionSetCard[]>([]);
-  const [discoverFilters, setDiscoverFilters] = useState<QuestionSetFilters>({ isFeatured: true });
   const [questionSetTags, setQuestionSetTags] = useState<string[]>([]);
   const [questionSetsLoading, setQuestionSetsLoading] = useState(false);
   const [questionSetsError, setQuestionSetsError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export default function App() {
   const [quizSubmissionLoading, setQuizSubmissionLoading] = useState(false);
   const [quizSubmissionError, setQuizSubmissionError] = useState<string | null>(null);
   const [quizTotalTimeMs, setQuizTotalTimeMs] = useState(0);
+  const [quizReturnTarget, setQuizReturnTarget] = useState<QuizReturnTarget | null>(null);
 
   const [themeEnabled, setThemeEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -204,7 +206,7 @@ export default function App() {
       setQuestionSetsError(null);
 
       void funfantiApi
-        .getQuestionSets(discoverFilters, authToken)
+        .getQuestionSets({}, authToken)
         .then((nextQuestionSets) => {
           if (questionSetFetchId.current !== fetchId) {
             return;
@@ -232,7 +234,7 @@ export default function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [authToken, discoverFilters]);
+  }, [authToken]);
 
   useEffect(() => {
     if (authToken) {
@@ -285,8 +287,39 @@ export default function App() {
     setScreen(nextState.screen);
   };
 
+  const clearActiveQuizSession = () => {
+    setQuizQuestions([]);
+    setQuizIndex(0);
+    setSelectedChoice(null);
+    setAnswers({});
+    setScore(0);
+    setQuestionDurations({});
+    setQuizSessionResult(null);
+    setQuizSubmissionError(null);
+    setQuizSubmissionLoading(false);
+    setQuizStartedAtMs(Date.now());
+    setQuestionStartedAtMs(Date.now());
+    setQuizTotalTimeMs(0);
+    setQuizReturnTarget(null);
+  };
+
+  const finishQuizFlow = () => {
+    const target = quizReturnTarget ?? createQuizReturnTarget(tabStacks, activeTab);
+    const nextState = applyQuizReturnTarget(tabStacks, target);
+
+    setTabStacks(nextState.stacks);
+    setActiveTab(nextState.tab);
+    setScreen(nextState.screen);
+    clearActiveQuizSession();
+  };
+
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'result') {
+        finishQuizFlow();
+        return true;
+      }
+
       if (isMainScreenKey(screen) && (tabStacks[activeTab]?.length ?? 0) > 1) {
         goBackInActiveTab();
         return true;
@@ -296,7 +329,7 @@ export default function App() {
     });
 
     return () => subscription.remove();
-  }, [activeTab, screen, tabStacks]);
+  }, [activeTab, quizReturnTarget, screen, tabStacks]);
 
   const goToMainApp = () => {
     resetMainTabs();
@@ -414,6 +447,7 @@ export default function App() {
 
   const beginActiveQuestionSetQuiz = async () => {
     const nextQuestionSet = activeQuestionSet ?? questionSets[0] ?? null;
+    const returnTarget = createQuizReturnTarget(tabStacks, activeTab);
 
     if (!nextQuestionSet) {
       setQuestionSetActionError('Choose a question set before starting a quiz.');
@@ -433,6 +467,7 @@ export default function App() {
       }
 
       setQuizQuestions(nextQuestions);
+      setQuizReturnTarget(returnTarget);
       startQuiz();
     } catch (error) {
       setQuestionSetActionError(error instanceof Error ? error.message : 'Unable to load this quiz.');
@@ -523,7 +558,7 @@ export default function App() {
   const seeQuizSummary = async () => {
     const saved = await submitQuizSession(answers);
     if (saved) {
-      pushMainScreen('result');
+      replaceMainScreen('result');
     }
   };
 
@@ -725,7 +760,7 @@ export default function App() {
       questionSetTags={questionSetTags}
       questionSetsLoading={questionSetsLoading}
       questionSetsError={questionSetsError}
-      onUpdateDiscoverFilters={setDiscoverFilters}
+      onExitQuizSummary={finishQuizFlow}
       bookmarkedQuestionSetIds={bookmarkedQuestionSetIds}
       bookmarkActionLoadingId={bookmarkActionLoadingId}
       questionSetActionLoadingId={questionSetActionLoadingId}
@@ -749,7 +784,6 @@ export default function App() {
       onStartQuestionSet={startQuestionSet}
       onToggleQuestionSetBookmark={toggleQuestionSetBookmark}
       onRetryQuiz={() => startQuiz('replace')}
-      onContinueHome={() => selectMainTab('home')}
       onUpdateProfile={updateProfile}
       onRefreshUserSpace={() => {
         if (authToken) {
