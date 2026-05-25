@@ -12,6 +12,9 @@ import {
   type QuizQuestion,
   type ScreenKey,
 } from './src/data/funfantiContent';
+import * as Notifications from 'expo-notifications';
+import { notificationService, markQuestionAsCorrect } from './src/services/notificationService';
+import { QuickQuestionScreen } from './src/screens/QuickQuestionScreen';
 import {
   funfantiApi,
   type AuthUser,
@@ -83,8 +86,25 @@ export default function App() {
   const [themeEnabled, setThemeEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [notificationOverlay, setNotificationOverlay] = useState(false);
+  const [quickQuestion, setQuickQuestion] = useState<QuizQuestion | null>(null);
 
   const questionSetFetchId = useRef(0);
+
+  useEffect(() => {
+    notificationService.requestPermissionsAsync();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const question = response.notification.request.content.data?.question as QuizQuestion | undefined;
+      if (question) {
+        setQuickQuestion(question);
+        setScreen('quick-question');
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const bookmarkedQuestionSetIds = useMemo(
     () => bookmarks.map((bookmark) => bookmark.questionSet.id),
@@ -510,6 +530,7 @@ export default function App() {
         await funfantiApi.bookmarkQuestionSet(questionSet.id, authToken);
       }
       setBookmarks(await funfantiApi.getBookmarks(authToken));
+      await notificationService.replenishQuestionQueue(authToken);
     } catch (error) {
       setBookmarks(previousBookmarks);
       setQuestionSets((current) =>
@@ -750,6 +771,22 @@ export default function App() {
         return renderAuthFlowScreen('login', 'login-method');
       case 'auth-success':
         return renderAuthFlowScreen('auth-success', 'auth-select');
+      case 'quick-question':
+        return (
+          <QuickQuestionScreen
+            question={quickQuestion}
+            onClose={(wasCorrect) => {
+              if (wasCorrect && quickQuestion) {
+                markQuestionAsCorrect(quickQuestion.id);
+                if (authToken) {
+                  void notificationService.replenishQuestionQueue(authToken);
+                }
+              }
+              setScreen('home');
+              setActiveTab('home');
+            }}
+          />
+        );
       case 'home':
       case 'my-quizzes':
       case 'discover':

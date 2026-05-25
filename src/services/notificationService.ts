@@ -1,0 +1,132 @@
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import { funfantiApi } from './funfantiApi';
+import { QuizQuestion } from '../data/funfantiContent';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+/**
+ * In-memory set of question IDs the user has answered correctly during this
+ * session. Correctly answered questions are sorted to the END of the
+ * notification queue so fresh questions always appear first.
+ */
+const correctlyAnsweredQuestionIds = new Set<string>();
+
+/**
+ * Call this whenever the user answers a quick-question notification correctly.
+ * After calling this, invoke notificationService.replenishQuestionQueue() so
+ * the updated order takes effect immediately.
+ */
+export function markQuestionAsCorrect(questionId: string): void {
+  correctlyAnsweredQuestionIds.add(questionId);
+}
+
+export const notificationService = {
+  async requestPermissionsAsync() {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      return finalStatus === 'granted';
+    }
+    return false;
+  },
+
+  async clearAllScheduledNotifications() {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  },
+
+  async replenishQuestionQueue(accessToken?: string | null) {
+    // 1. Clear existing queue
+    await this.clearAllScheduledNotifications();
+
+    // 2. Fetch bookmarks
+    if (!accessToken) return;
+    const bookmarks = await funfantiApi.getBookmarks(accessToken);
+    if (!bookmarks || bookmarks.length === 0) {
+      return; // Nothing to schedule
+    }
+
+    // 3. Gather questions from up to 3 random bookmarked sets to avoid too many API calls
+    const setsToFetch = bookmarks.sort(() => 0.5 - Math.random()).slice(0, 3);
+    let allQuestions: QuizQuestion[] = [];
+
+    for (const b of setsToFetch) {
+      const qs = await funfantiApi.getQuestionSetQuestions(b.questionSet.id);
+      allQuestions = allQuestions.concat(qs);
+    }
+
+    if (allQuestions.length === 0) {
+      return;
+    }
+
+    // 4. Shuffle questions
+    allQuestions.sort(() => 0.5 - Math.random());
+
+    // 5. Push questions already answered correctly to the end so fresh/unseen
+    //    questions are always presented first.
+    allQuestions.sort((a, b) => {
+      const aCorrect = correctlyAnsweredQuestionIds.has(a.id) ? 1 : 0;
+      const bCorrect = correctlyAnsweredQuestionIds.has(b.id) ? 1 : 0;
+      return aCorrect - bCorrect;
+    });
+
+    // 6. Schedule 10 notifications at 30-minute intervals
+    // Skips the window between 22:00 (10 PM) and 08:00 (8 AM)
+    const now = new Date();
+    let currentTriggerTime = now.getTime();
+    const intervalMs = 5 * 60 * 1000; // 30 minutes
+
+    for (let i = 0; i < Math.min(10, allQuestions.length); i++) {
+      currentTriggerTime += intervalMs;
+      let triggerDate = new Date(currentTriggerTime);
+
+      // Check quiet hours: 22:00 to 08:00
+      let hours = triggerDate.getHours();
+      if (hours >= 22 || hours < 8) {
+        // Skip to 08:00 of the (next) morning
+        if (hours >= 22) {
+          triggerDate.setDate(triggerDate.getDate() + 1);
+        }
+        triggerDate.setHours(8, 0, 0, 0);
+        currentTriggerTime = triggerDate.getTime();
+      }
+
+      const question = allQuestions[i];
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Time for a Quick Question! 🧠",
+          body: question.prompt,
+          data: { question },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: triggerDate,
+        },
+      });
+    }
+  },
+};
