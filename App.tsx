@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { BackHandler, View } from "react-native";
+import { BackHandler, View, Platform } from "react-native";
 import { IntroFlow } from "./src/screens/IntroFlow";
 import { AuthFlow } from "./src/screens/AuthFlow";
 import { MainFlow } from "./src/screens/MainFlow";
@@ -1238,7 +1238,11 @@ export default function App() {
                   );
                 }
               }
-              selectMainTab("home");
+              if (Platform.OS === "android") {
+                BackHandler.exitApp();
+              } else {
+                selectMainTab("home");
+              }
             }}
           />
         );

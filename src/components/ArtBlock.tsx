@@ -7,15 +7,16 @@ type ArtBlockProps = {
   variant: 'hero' | 'card' | 'quiz';
   imageUrl?: string;
   imageSource?: ImageSourcePropType;
+  onImageError?: () => void;
 };
 
-export function ArtBlock({ tone, variant, imageUrl, imageSource }: ArtBlockProps) {
+export function ArtBlock({ tone, variant, imageUrl, imageSource, onImageError }: ArtBlockProps) {
   const resolvedSource = imageSource ?? (imageUrl ? { uri: imageUrl } : undefined);
 
   return (
     <View style={[styles.base, styles[variant], { backgroundColor: tone }]}>
       {resolvedSource ? (
-        <Image source={resolvedSource} style={styles.image} resizeMode="cover" />
+        <Image source={resolvedSource} style={styles.image} resizeMode="cover" onError={onImageError} />
       ) : null}
     </View>
   );

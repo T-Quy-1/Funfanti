@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { QuizQuestion } from "../data/funfantiContent";
 import { ArtBlock } from "../components/ArtBlock";
+import { resolveApiUrl } from "../services/funfantiApi";
 import { analyticsEvents, logEvent } from "../services/analytics";
 
 type QuickQuestionScreenProps = {
@@ -22,6 +23,13 @@ export const QuickQuestionScreen: React.FC<QuickQuestionScreenProps> = ({
   onClose,
 }) => {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const imageSource = question?.imageSource ?? (question?.imageUrl ? { uri: resolveApiUrl(question.imageUrl) || question.imageUrl } : undefined);
+  const shouldShowImage = Boolean(imageSource) && !imageLoadFailed;
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [question?.id, question?.imageUrl]);
 
   const handleClose = (wasCorrect?: boolean) => {
     onClose(wasCorrect);
@@ -67,7 +75,14 @@ export const QuickQuestionScreen: React.FC<QuickQuestionScreenProps> = ({
         </View>
 
         <View style={styles.card}>
-          <ArtBlock tone={question.artTone || "#DDF7FA"} variant="quiz" />
+          {shouldShowImage ? (
+            <ArtBlock
+              tone={question.artTone || "#DDF7FA"}
+              variant="quiz"
+              imageSource={imageSource}
+              onImageError={() => setImageLoadFailed(true)}
+            />
+          ) : null}
           <Text style={styles.prompt}>{question.prompt}</Text>
 
           <View style={styles.choiceStack}>

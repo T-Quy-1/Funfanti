@@ -84,6 +84,28 @@ const apiBaseUrl = (
   process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://192.168.2.10:3000"
 ).replace(/\/$/, "");
 
+export const resolveApiUrl = (url?: string): string | undefined => {
+  if (!url) return undefined;
+  
+  // If the backend returns a localhost URL, replace it with the actual API base URL so physical devices can reach it
+  if (url.includes('localhost') || url.includes('127.0.0.1')) {
+    try {
+      const urlObj = new URL(url);
+      const apiObj = new URL(apiBaseUrl);
+      urlObj.hostname = apiObj.hostname;
+      urlObj.port = apiObj.port;
+      return urlObj.toString();
+    } catch {
+      // Fallback if URL parsing fails
+    }
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 type RemoteQuestionSet = {
   id?: unknown;
   title?: unknown;
@@ -204,7 +226,7 @@ const mapRemoteQuestionSet = (
 ): QuestionSetCard => {
   const description = normalize(remote.description);
   const summary = normalize(remote.summary);
-  const mediaUrl = normalize(remote.mediaUrl);
+  const mediaUrl = resolveApiUrl(normalize(remote.mediaUrl));
 
   return {
     id: normalize(remote.id) || `question-set-${index + 1}`,
@@ -307,7 +329,7 @@ const mapRemoteQuestions = (
       normalize(question.explanationText) ||
       "No explanation was provided for this question.",
     artTone,
-    imageUrl: normalize(question.mediaUrl) || undefined,
+    imageUrl: resolveApiUrl(normalize(question.mediaUrl)) || undefined,
     imageSource: undefined,
     choices: (Array.isArray(question.choices) ? question.choices : []).map(
       (choice, choiceIndex) => ({
