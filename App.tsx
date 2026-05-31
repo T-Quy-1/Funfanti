@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { BackHandler, View, Platform } from "react-native";
+import { BackHandler, View, Platform, AppState } from "react-native";
 import { IntroFlow } from "./src/screens/IntroFlow";
 import { AuthFlow } from "./src/screens/AuthFlow";
 import { MainFlow } from "./src/screens/MainFlow";
@@ -167,6 +167,21 @@ export default function App() {
   useEffect(() => {
     void logScreenView(screen);
   }, [screen]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "background") {
+        setScreen((currentScreen) => {
+          if (currentScreen === "quick-question") {
+            return getTabStackTop(tabStacks, activeTab);
+          }
+          return currentScreen;
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [activeTab, tabStacks]);
 
   const bookmarkedQuestionSetIds = useMemo(
     () => bookmarks.map((bookmark) => bookmark.questionSet.id),
@@ -507,6 +522,14 @@ export default function App() {
       () => {
         if (screen === "result") {
           finishQuizFlow();
+          return true;
+        }
+
+        if (screen === "quick-question") {
+          selectMainTab("home");
+          if (Platform.OS === "android") {
+            BackHandler.exitApp();
+          }
           return true;
         }
 
@@ -1238,10 +1261,9 @@ export default function App() {
                   );
                 }
               }
+              selectMainTab("home");
               if (Platform.OS === "android") {
                 BackHandler.exitApp();
-              } else {
-                selectMainTab("home");
               }
             }}
           />
